@@ -32,9 +32,11 @@ import hmac
 
 from .i18n import _
 
-
 import urllib.request, urllib.parse, urllib.error
 import queue
+
+from lib.tes.util import get_display_name, get_resource_name
+
 
 def inv_dict(d):
     return {v: k for k, v in d.items()}
@@ -323,11 +325,11 @@ def user_dir():
     if 'ANDROID_DATA' in os.environ:
         return android_check_data_dir()
     elif os.name == 'posix':
-        return os.path.join(os.environ["HOME"], ".electrum")
+        return os.path.join(os.environ["HOME"], ".{}".format(get_resource_name()))
     elif "APPDATA" in os.environ:
-        return os.path.join(os.environ["APPDATA"], "Electrum")
+        return os.path.join(os.environ["APPDATA"], get_display_name())
     elif "LOCALAPPDATA" in os.environ:
-        return os.path.join(os.environ["LOCALAPPDATA"], "Electrum")
+        return os.path.join(os.environ["LOCALAPPDATA"], get_display_name())
     else:
         #raise Exception("No home directory found in environment variables.")
         return

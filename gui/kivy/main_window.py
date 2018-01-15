@@ -69,6 +69,8 @@ Label.register('Roboto',
 
 from electrum.util import base_units
 
+from lib.tes.conf import DEFAULT_WALLET_NAME
+
 
 class ElectrumWindow(App):
 
@@ -862,7 +864,7 @@ class ElectrumWindow(App):
         os.unlink(wallet_path)
         self.show_error("Wallet removed:" + basename)
         d = os.listdir(dirname)
-        name = 'default_wallet'
+        name = DEFAULT_WALLET_NAME
         new_path = os.path.join(dirname, name)
         self.load_wallet_by_name(new_path)
 

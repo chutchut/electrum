@@ -9,7 +9,10 @@ from .util import user_dir, print_error, print_stderr, PrintError
 
 from .bitcoin import MAX_FEE_RATE, FEE_TARGETS
 
-SYSTEM_CONFIG_PATH = "/etc/electrum.conf"
+from lib.tes.conf import DEFAULT_WALLET_NAME
+from lib.tes.util import get_resource_name
+
+SYSTEM_CONFIG_PATH = "/etc/{}.conf".format(get_resource_name())
 
 config = None
 
@@ -170,7 +173,7 @@ class SimpleConfig(PrintError):
             os.mkdir(dirpath)
             os.chmod(dirpath, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
-        new_path = os.path.join(self.path, "wallets", "default_wallet")
+        new_path = os.path.join(self.path, "wallets", DEFAULT_WALLET_NAME)
 
         # default path in pre 1.9 versions
         old_path = os.path.join(self.path, "electrum.dat")
