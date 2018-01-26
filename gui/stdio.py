@@ -6,8 +6,11 @@ from electrum.util import format_satoshis, set_verbosity
 from electrum.bitcoin import is_address, COIN, TYPE_ADDRESS
 import getpass, datetime
 
+from lib.tes.conf import TESLACOIN_NAME
+
 # minimal fdisk like gui for console usage
 # written by rofl0r, with some bits stolen from the text gui (ncurses)
+
 
 class ElectrumGui:
 
@@ -163,7 +166,7 @@ class ElectrumGui:
 
     def do_send(self):
         if not is_address(self.str_recipient):
-            print(_('Invalid Bitcoin address'))
+            print(_('Invalid {} address'.format(TESLACOIN_NAME)))
             return
         try:
             amount = int(Decimal(self.str_amount) * COIN)

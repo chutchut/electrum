@@ -8,6 +8,8 @@ from electrum.util import format_satoshis, set_verbosity
 from electrum.bitcoin import is_address, COIN, TYPE_ADDRESS
 from electrum import Wallet, WalletStorage
 
+from lib.tes.conf import TESLACOIN_NAME
+
 _ = lambda x:x
 
 
@@ -320,7 +322,7 @@ class ElectrumGui:
 
     def do_send(self):
         if not is_address(self.str_recipient):
-            self.show_message(_('Invalid Bitcoin address'))
+            self.show_message(_('Invalid {} address'.format(TESLACOIN_NAME)))
             return
         try:
             amount = int(Decimal(self.str_amount) * COIN)
