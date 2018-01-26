@@ -69,7 +69,7 @@ Label.register('Roboto',
 
 from electrum.util import base_units
 
-from lib.tes.conf import DEFAULT_WALLET_NAME
+from lib.tes.conf import DEFAULT_WALLET_NAME, TESLACOIN_CODE
 
 
 class ElectrumWindow(App):
@@ -156,7 +156,7 @@ class ElectrumWindow(App):
         self._trigger_update_history()
 
     def _get_bu(self):
-        return self.electrum_config.get('base_unit', 'mBTC')
+        return self.electrum_config.get('base_unit', 'm{}'.format(TESLACOIN_CODE))
 
     def _set_bu(self, value):
         assert value in base_units.keys()

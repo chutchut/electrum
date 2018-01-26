@@ -54,13 +54,15 @@ try:
 except:
     plot_history = None
 
-from .amountedit import AmountEdit, BTCAmountEdit, MyLineEdit, FeerateEdit
+from .amountedit import AmountEdit, TESAmountEdit, MyLineEdit, FeerateEdit
 from .qrcodewidget import QRCodeWidget, QRDialog
 from .qrtextedit import ShowQRTextEdit, ScanQRTextEdit
 from .transaction_dialog import show_transaction
 from .fee_slider import FeeSlider
 
 from .util import *
+
+from lib.tes.conf import TESLACOIN_CODE
 
 
 class StatusBarButton(QPushButton):
@@ -636,11 +638,11 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
     def base_unit(self):
         assert self.decimal_point in [2, 5, 8]
         if self.decimal_point == 2:
-            return 'bits'
+            return 'u{}'.format(TESLACOIN_CODE)
         if self.decimal_point == 5:
-            return 'mBTC'
+            return 'm{}'.format(TESLACOIN_CODE)
         if self.decimal_point == 8:
-            return 'BTC'
+            return TESLACOIN_CODE
         raise Exception('Unknown base unit')
 
     def connect_fields(self, window, btc_e, fiat_e, fee_e):
@@ -776,7 +778,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         grid.addWidget(self.receive_message_e, 1, 1, 1, -1)
         self.receive_message_e.textChanged.connect(self.update_receive_qr)
 
-        self.receive_amount_e = BTCAmountEdit(self.get_decimal_point)
+        self.receive_amount_e = TESAmountEdit(self.get_decimal_point)
         grid.addWidget(QLabel(_('Requested amount')), 2, 0)
         grid.addWidget(self.receive_amount_e, 2, 1)
         self.receive_amount_e.textChanged.connect(self.update_receive_qr)
@@ -1007,7 +1009,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         grid.setColumnStretch(3, 1)
 
         from .paytoedit import PayToEdit
-        self.amount_e = BTCAmountEdit(self.get_decimal_point)
+        self.amount_e = TESAmountEdit(self.get_decimal_point)
         self.payto_e = PayToEdit(self)
         msg = _('Recipient of the funds.') + '\n\n'\
               + _('You may enter a Bitcoin address, a label from your list of contacts (a list of completions will be proposed), or an alias (email-like address that forwards to a Bitcoin address)')
@@ -1106,7 +1108,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         self.feerate_e.textEdited.connect(partial(on_fee_or_feerate, self.feerate_e, False))
         self.feerate_e.editingFinished.connect(partial(on_fee_or_feerate, self.feerate_e, True))
 
-        self.fee_e = BTCAmountEdit(self.get_decimal_point)
+        self.fee_e = TESAmountEdit(self.get_decimal_point)
         self.fee_e.textEdited.connect(partial(on_fee_or_feerate, self.fee_e, False))
         self.fee_e.editingFinished.connect(partial(on_fee_or_feerate, self.fee_e, True))
 
@@ -2599,7 +2601,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         self.fee_unit = self.config.get('fee_unit', 0)
         fee_unit_label = HelpLabel(_('Fee Unit') + ':', '')
         fee_unit_combo = QComboBox()
-        fee_unit_combo.addItems([_('sat/byte'), _('mBTC/kB')])
+        fee_unit_combo.addItems([_('sat/byte'), _('m{}/kB'.format(TESLACOIN_CODE))])
         fee_unit_combo.setCurrentIndex(self.fee_unit)
         def on_fee_unit(x):
             self.fee_unit = x
@@ -2658,9 +2660,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         SSL_id_e.setReadOnly(True)
         id_widgets.append((SSL_id_label, SSL_id_e))
 
-        units = ['BTC', 'mBTC', 'bits']
+        units = [TESLACOIN_CODE, 'm{}'.format(TESLACOIN_CODE), 'u{}'.format(TESLACOIN_CODE)]
         msg = _('Base unit of your wallet.')\
-              + '\n1BTC=1000mBTC.\n' \
+              + '\n1{}=1000m{}.\n'.format(TESLACOIN_CODE, TESLACOIN_CODE) \
               + _(' These settings affects the fields in the Send tab')+' '
         unit_label = HelpLabel(_('Base unit') + ':', msg)
         unit_combo = QComboBox()
@@ -2672,11 +2674,11 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                 return
             edits = self.amount_e, self.fee_e, self.receive_amount_e
             amounts = [edit.get_amount() for edit in edits]
-            if unit_result == 'BTC':
+            if unit_result == TESLACOIN_CODE:
                 self.decimal_point = 8
-            elif unit_result == 'mBTC':
+            elif unit_result == 'm{}'.format(TESLACOIN_CODE):
                 self.decimal_point = 5
-            elif unit_result == 'bits':
+            elif unit_result == 'u{}'.format(TESLACOIN_CODE):
                 self.decimal_point = 2
             else:
                 raise Exception('Unknown base unit')
@@ -3010,7 +3012,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         output_amount = QLabel('')
         grid.addWidget(QLabel(_('Output amount') + ':'), 2, 0)
         grid.addWidget(output_amount, 2, 1)
-        fee_e = BTCAmountEdit(self.get_decimal_point)
+        fee_e = TESAmountEdit(self.get_decimal_point)
         def f(x):
             a = max_fee - fee_e.get_amount()
             output_amount.setText((self.format_amount(a) + ' ' + self.base_unit()) if a else '')
@@ -3047,7 +3049,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         vbox.addWidget(QLabel(_('Current fee') + ': %s'% self.format_amount(fee) + ' ' + self.base_unit()))
         vbox.addWidget(QLabel(_('New fee' + ':')))
 
-        fee_e = BTCAmountEdit(self.get_decimal_point)
+        fee_e = TESAmountEdit(self.get_decimal_point)
         fee_e.setAmount(fee * 1.5)
         vbox.addWidget(fee_e)
 

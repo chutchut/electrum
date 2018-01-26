@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import (QLineEdit, QStyle, QStyleOptionFrame)
 from decimal import Decimal
 from electrum.util import format_satoshis_plain
 
+from lib.tes.conf import TESLACOIN_CODE
+
 
 class MyLineEdit(QLineEdit):
     frozen = pyqtSignal()
@@ -73,7 +75,7 @@ class AmountEdit(MyLineEdit):
         self.setText("%d"%x)
 
 
-class BTCAmountEdit(AmountEdit):
+class TESAmountEdit(AmountEdit):
 
     def __init__(self, decimal_point, is_int = False, parent=None):
         AmountEdit.__init__(self, self._base_unit, is_int, parent)
@@ -82,11 +84,11 @@ class BTCAmountEdit(AmountEdit):
     def _base_unit(self):
         p = self.decimal_point()
         if p == 8:
-            return 'BTC'
+            return TESLACOIN_CODE
         if p == 5:
-            return 'mBTC'
+            return 'm{}'.format(TESLACOIN_CODE)
         if p == 2:
-            return 'bits'
+            return 'u{}'.format(TESLACOIN_CODE)
         raise Exception('Unknown base unit')
 
     def get_amount(self):
@@ -104,17 +106,17 @@ class BTCAmountEdit(AmountEdit):
             self.setText(format_satoshis_plain(amount, self.decimal_point()))
 
 
-class FeerateEdit(BTCAmountEdit):
+class FeerateEdit(TESAmountEdit):
     def _base_unit(self):
         p = self.decimal_point()
         if p == 2:
-            return 'mBTC/kB'
+            return 'm{}/kB'.format(TESLACOIN_CODE)
         if p == 0:
             return 'sat/byte'
         raise Exception('Unknown base unit')
 
     def get_amount(self):
-        sat_per_byte_amount = BTCAmountEdit.get_amount(self)
+        sat_per_byte_amount = TESAmountEdit.get_amount(self)
         if sat_per_byte_amount is None:
             return None
         return 1000 * sat_per_byte_amount

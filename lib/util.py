@@ -35,6 +35,7 @@ from .i18n import _
 import urllib.request, urllib.parse, urllib.error
 import queue
 
+from lib.tes.conf import TESLACOIN_CODE
 from lib.tes.util import get_display_name, get_resource_name
 
 
@@ -42,7 +43,7 @@ def inv_dict(d):
     return {v: k for k, v in d.items()}
 
 
-base_units = {'BTC':8, 'mBTC':5, 'uBTC':2}
+base_units = {TESLACOIN_CODE:8, 'm{}'.format(TESLACOIN_CODE):5, 'u{}'.format(TESLACOIN_CODE):2}
 fee_levels = [_('Within 25 blocks'), _('Within 10 blocks'), _('Within 5 blocks'), _('Within 2 blocks'), _('In the next block')]
 
 def normalize_version(v):

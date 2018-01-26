@@ -13,6 +13,8 @@ import matplotlib.dates as md
 from matplotlib.patches import Ellipse
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, DrawingArea, HPacker
 
+from lib.tes.conf import TESLACOIN_CODE
+
 
 def plot_history(wallet, history):
     hist_in = defaultdict(int)
@@ -35,7 +37,7 @@ def plot_history(wallet, history):
     plt.subplots_adjust(bottom=0.2)
     plt.xticks( rotation=25 )
     ax = plt.gca()
-    plt.ylabel('BTC')
+    plt.ylabel(TESLACOIN_CODE)
     plt.xlabel('Month')
     xfmt = md.DateFormatter('%Y-%m-%d')
     ax.xaxis.set_major_formatter(xfmt)
