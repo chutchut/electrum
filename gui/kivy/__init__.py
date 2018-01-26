@@ -28,6 +28,8 @@
 import sys
 import os
 
+from lib.tes.util import get_display_name
+
 try:
     sys.argv = ['']
     import kivy
@@ -46,7 +48,7 @@ from kivy.logger import Logger
 class ElectrumGui:
 
     def __init__(self, config, daemon, plugins):
-        Logger.debug('ElectrumGUI: initialising')
+        Logger.debug('{}GUI: initialising'.format(get_display_name()))
         self.daemon = daemon
         self.network = daemon.network
         self.config = config

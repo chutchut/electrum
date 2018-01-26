@@ -63,6 +63,7 @@ from .fee_slider import FeeSlider
 from .util import *
 
 from lib.tes.conf import TESLACOIN_CODE
+from lib.tes.util import get_display_name
 
 
 class StatusBarButton(QPushButton):
@@ -365,7 +366,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             self.setGeometry(100, 100, 840, 400)
 
     def watching_only_changed(self):
-        name = "Electrum Testnet" if NetworkConstants.TESTNET else "Electrum"
+        name = "{} Testnet".format(get_display_name()) if NetworkConstants.TESTNET else get_display_name()
         title = '%s %s  -  %s' % (name, self.wallet.electrum_version,
                                         self.wallet.basename())
         extra = [self.wallet.storage.get('wallet_type', '?')]
@@ -407,9 +408,12 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         if new_path != path:
             try:
                 shutil.copy2(path, new_path)
-                self.show_message(_("A copy of your wallet file was created in")+" '%s'" % str(new_path), title=_("Wallet backup created"))
+                self.show_message(_("A copy of your wallet file was created in")+" '%s'" % str(new_path),
+                                  title=_("Wallet backup created"))
             except (IOError, os.error) as reason:
-                self.show_critical(_("Electrum was unable to copy your wallet file to the specified location.") + "\n" + str(reason), title=_("Unable to create backup"))
+                self.show_critical(_("{} was unable to copy your wallet file to the specified location."
+                                     .format(get_display_name())) + "\n" + str(reason),
+                                   title=_("Unable to create backup"))
 
     def update_recently_visited(self, filename):
         recent = self.config.get('recently_open', [])
@@ -498,7 +502,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         tools_menu = menubar.addMenu(_("&Tools"))
 
         # Settings / Preferences are all reserved keywords in OSX using this as work around
-        tools_menu.addAction(_("Electrum preferences") if sys.platform == 'darwin' else _("Preferences"), self.settings_dialog)
+        tools_menu.addAction(_("{} preferences".format(get_display_name())) if sys.platform == 'darwin' else _("Preferences"), self.settings_dialog)
         tools_menu.addAction(_("&Network"), lambda: self.gui_object.show_network_dialog(self))
         tools_menu.addAction(_("&Plugins"), self.plugins_dialog)
         tools_menu.addSeparator()
@@ -536,9 +540,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             self.show_error(_('No donation address for this server'))
 
     def show_about(self):
-        QMessageBox.about(self, "Electrum",
+        QMessageBox.about(self, get_display_name(),
             _("Version")+" %s" % (self.wallet.electrum_version) + "\n\n" +
-                _("Electrum's focus is speed, with low resource usage and simplifying Bitcoin. You do not need to perform regular backups, because your wallet can be recovered from a secret phrase that you can memorize or write on paper. Startup times are instant because it operates in conjunction with high-performance servers that handle the most complicated parts of the Bitcoin system."  + "\n\n" +
+                _("{}'s focus is speed, with low resource usage and simplifying Bitcoin. You do not need to perform regular backups, because your wallet can be recovered from a secret phrase that you can memorize or write on paper. Startup times are instant because it operates in conjunction with high-performance servers that handle the most complicated parts of the Bitcoin system.".format(get_display_name())  + "\n\n" +
                 _("Uses icons from the Icons8 icon pack (icons8.com).")))
 
     def show_report_bug(self):
@@ -548,7 +552,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             _("Before reporting a bug, upgrade to the most recent version of Electrum (latest release or git HEAD), and include the version number in your report."),
             _("Try to explain not only what the bug is, but how it occurs.")
          ])
-        self.show_message(msg, title="Electrum - " + _("Reporting Bugs"))
+        self.show_message(msg, title="{} - ".format(get_display_name()) + _("Reporting Bugs"))
 
     def notify_transactions(self):
         if not self.network or not self.network.is_connected():
@@ -578,9 +582,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         if self.tray:
             try:
                 # this requires Qt 5.9
-                self.tray.showMessage("Electrum", message, QIcon(":icons/electrum_dark_icon"), 20000)
+                self.tray.showMessage(get_display_name(), message, QIcon(":icons/electrum_dark_icon"), 20000)
             except TypeError:
-                self.tray.showMessage("Electrum", message, QSystemTrayIcon.Information, 20000)
+                self.tray.showMessage(get_display_name(), message, QSystemTrayIcon.Information, 20000)
 
 
 
@@ -2167,7 +2171,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             tx = tx_from_str(txt)
             return Transaction(tx)
         except BaseException as e:
-            self.show_critical(_("Electrum was unable to parse your transaction") + ":\n" + str(e))
+            self.show_critical(_("{} was unable to parse your transaction".format(get_display_name())) + ":\n" + str(e))
             return
 
     def read_tx_from_qrcode(self):
@@ -2198,7 +2202,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             with open(fileName, "r") as f:
                 file_content = f.read()
         except (ValueError, IOError, os.error) as reason:
-            self.show_critical(_("Electrum was unable to open your transaction file") + "\n" + str(reason), title=_("Unable to read file or no transaction found"))
+            self.show_critical(_("{} was unable to open your transaction file".format(get_display_name())) + "\n"
+                               + str(reason), title=_("Unable to read file or no transaction found"))
             return
         return self.tx_from_text(file_content)
 
@@ -2212,7 +2217,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             if tx:
                 self.show_transaction(tx)
         except SerializationError as e:
-            self.show_critical(_("Electrum was unable to deserialize the transaction:") + "\n" + str(e))
+            self.show_critical(_("{} was unable to deserialize the transaction:".format(get_display_name())) + "\n"
+                               + str(e))
 
     def do_process_from_file(self):
         from electrum.transaction import SerializationError
@@ -2221,7 +2227,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             if tx:
                 self.show_transaction(tx)
         except SerializationError as e:
-            self.show_critical(_("Electrum was unable to deserialize the transaction:") + "\n" + str(e))
+            self.show_critical(_("{} was unable to deserialize the transaction:".format(get_display_name())) + "\n"
+                               + str(e))
 
     def do_process_from_txid(self):
         from electrum import transaction
@@ -2300,7 +2307,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             self.do_export_privkeys(filename, private_keys, csv_button.isChecked())
         except (IOError, os.error) as reason:
             txt = "\n".join([
-                _("Electrum was unable to produce a private key-export."),
+                _("{} was unable to produce a private key-export.".format(get_display_name())),
                 str(reason)
             ])
             self.show_critical(txt, title=_("Unable to create csv"))
@@ -2332,7 +2339,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                 self.wallet.set_label(key, value)
             self.show_message(_("Your labels were imported from") + " '%s'" % str(labelsFile))
         except (IOError, os.error) as reason:
-            self.show_critical(_("Electrum was unable to import your labels.") + "\n" + str(reason))
+            self.show_critical(_("{} was unable to import your labels.".format(get_display_name())) + "\n" + str(reason))
         self.address_list.update()
         self.history_list.update()
 
@@ -2345,7 +2352,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                     json.dump(labels, f, indent=4, sort_keys=True)
                 self.show_message(_("Your labels were exported to") + " '%s'" % str(fileName))
         except (IOError, os.error) as reason:
-            self.show_critical(_("Electrum was unable to export your labels.") + "\n" + str(reason))
+            self.show_critical(_("{} was unable to export your labels.".format(get_display_name())) + "\n" + str(reason))
 
     def export_history_dialog(self):
         d = WindowModalDialog(self, _('Export History'))
@@ -2368,7 +2375,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         try:
             self.do_export_history(self.wallet, filename, csv_button.isChecked())
         except (IOError, os.error) as reason:
-            export_error_label = _("Electrum was unable to produce a transaction export.")
+            export_error_label = _("{} was unable to produce a transaction export.".format(get_display_name()))
             self.show_critical(export_error_label + "\n" + str(reason), title=_("Unable to export history"))
             return
         self.show_message(_("Your wallet history has been successfully exported."))
@@ -2925,7 +2932,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         self.gui_object.close_window(self)
 
     def plugins_dialog(self):
-        self.pluginsdialog = d = WindowModalDialog(self, _('Electrum Plugins'))
+        self.pluginsdialog = d = WindowModalDialog(self, _('{} Plugins'.format(get_display_name())))
 
         plugins = self.gui_object.plugins
 

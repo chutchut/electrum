@@ -31,6 +31,8 @@ from electrum.i18n import _
 from .util import *
 from .qrtextedit import ShowQRTextEdit, ScanQRTextEdit
 
+from lib.tes.util import get_display_name
+
 
 def seed_warning_msg(seed):
     return ''.join([
@@ -172,7 +174,7 @@ class KeysLayout(QVBoxLayout):
 class SeedDialog(WindowModalDialog):
 
     def __init__(self, parent, seed, passphrase):
-        WindowModalDialog.__init__(self, parent, ('Electrum - ' + _('Seed')))
+        WindowModalDialog.__init__(self, parent, ('{} - '.format(get_display_name()) + _('Seed')))
         self.setMinimumWidth(400)
         vbox = QVBoxLayout(self)
         title =  _("Your wallet generation seed is:")

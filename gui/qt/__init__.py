@@ -48,6 +48,8 @@ from electrum.util import UserCancelled, print_error
 
 from .installwizard import InstallWizard, GoBack
 
+from lib.tes.util import get_display_name
+
 
 try:
     from . import icons_rc
@@ -105,7 +107,7 @@ class ElectrumGui:
         # init tray
         self.dark_icon = self.config.get("dark_icon", False)
         self.tray = QSystemTrayIcon(self.tray_icon(), None)
-        self.tray.setToolTip('Electrum')
+        self.tray.setToolTip(get_display_name())
         self.tray.activated.connect(self.tray_activated)
         self.build_tray_menu()
         self.tray.show()

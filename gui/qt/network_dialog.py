@@ -36,8 +36,11 @@ from electrum.util import print_error
 
 from .util import *
 
+from lib.tes.util import get_display_name
+
 protocol_names = ['TCP', 'SSL']
 protocol_letters = 'ts'
+
 
 class NetworkDialog(QDialog):
     def __init__(self, network, config, network_updated_signal_obj):
@@ -280,7 +283,8 @@ class NetworkChoiceLayout(object):
         # Blockchain Tab
         grid = QGridLayout(blockchain_tab)
         msg =  ' '.join([
-            _("Electrum connects to several nodes in order to download block headers and find out the longest blockchain."),
+            _("{} connects to several nodes in order to download block headers and find out the longest blockchain."
+              .format(get_display_name())),
             _("This blockchain is used to verify the transactions sent by your transaction server.")
         ])
         self.status_label = QLabel('')
@@ -289,7 +293,8 @@ class NetworkChoiceLayout(object):
         grid.addWidget(HelpButton(msg), 0, 4)
 
         self.server_label = QLabel('')
-        msg = _("Electrum sends your wallet addresses to a single server, in order to receive your transaction history.")
+        msg = _("{} sends your wallet addresses to a single server, in order to receive your transaction history."
+                .format(get_display_name()))
         grid.addWidget(QLabel(_('Server') + ':'), 1, 0)
         grid.addWidget(self.server_label, 1, 1, 1, 3)
         grid.addWidget(HelpButton(msg), 1, 4)

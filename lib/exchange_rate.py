@@ -11,6 +11,8 @@ from .bitcoin import COIN
 from .i18n import _
 from .util import PrintError, ThreadJob
 
+from lib.tes.util import get_display_name
+
 
 # See https://en.wikipedia.org/wiki/ISO_4217
 CCY_PRECISIONS = {'BHD': 3, 'BIF': 0, 'BYR': 0, 'CLF': 4, 'CLP': 0,
@@ -32,12 +34,12 @@ class ExchangeBase(PrintError):
     def get_json(self, site, get_string):
         # APIs must have https
         url = ''.join(['https://', site, get_string])
-        response = requests.request('GET', url, headers={'User-Agent' : 'Electrum'})
+        response = requests.request('GET', url, headers={'User-Agent': get_display_name()})
         return response.json()
 
     def get_csv(self, site, get_string):
         url = ''.join(['https://', site, get_string])
-        response = requests.request('GET', url, headers={'User-Agent' : 'Electrum'})
+        response = requests.request('GET', url, headers={'User-Agent': get_display_name()})
         reader = csv.DictReader(response.content.decode().split('\n'))
         return list(reader)
 

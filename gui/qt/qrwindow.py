@@ -32,6 +32,9 @@ from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget
 from electrum_gui.qt.qrcodewidget import QRCodeWidget
 from electrum.i18n import _
 
+from lib.tes.util import get_display_name
+
+
 if platform.system() == 'Windows':
     MONOSPACE_FONT = 'Lucida Console'
 elif platform.system() == 'Darwin':
@@ -46,7 +49,7 @@ class QR_Window(QWidget):
     def __init__(self, win):
         QWidget.__init__(self)
         self.win = win
-        self.setWindowTitle('Electrum - '+_('Payment Request'))
+        self.setWindowTitle('{} - '.format(get_display_name()) + _('Payment Request'))
         self.setMinimumSize(800, 250)
         self.address = ''
         self.label = ''

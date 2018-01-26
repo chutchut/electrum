@@ -30,6 +30,8 @@ from .keystore import bip44_derivation
 from .wallet import Imported_Wallet, Standard_Wallet, Multisig_Wallet, wallet_types
 from .i18n import _
 
+from lib.tes.util import get_display_name
+
 
 class BaseWizard(object):
 
@@ -436,5 +438,5 @@ class BaseWizard(object):
             self.wallet.synchronize()
             self.wallet.storage.write()
             self.terminate()
-        msg = _("Electrum is generating your addresses, please wait.")
+        msg = _("{} is generating your addresses, please wait.".format(get_display_name()))
         self.waiting_dialog(task, msg)

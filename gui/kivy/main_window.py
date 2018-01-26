@@ -70,6 +70,7 @@ Label.register('Roboto',
 from electrum.util import base_units
 
 from lib.tes.conf import DEFAULT_WALLET_NAME, TESLACOIN_CODE
+from lib.tes.util import get_display_name
 
 
 class ElectrumWindow(App):
@@ -243,7 +244,7 @@ class ElectrumWindow(App):
 
         App.__init__(self)#, **kwargs)
 
-        title = _('Electrum App')
+        title = _('{} App'.format(get_display_name()))
         self.electrum_config = config = kwargs.get('config', None)
         self.language = config.get('language', 'en')
         self.network = network = kwargs.get('network', None)
@@ -490,7 +491,7 @@ class ElectrumWindow(App):
                 self.load_wallet(wallet)
                 self.on_resume()
         else:
-            Logger.debug('Electrum: Wallet not found. Launching install wizard')
+            Logger.debug('{}: Wallet not found. Launching install wizard'.format(get_display_name()))
             storage = WalletStorage(path)
             wizard = Factory.InstallWizard(self.electrum_config, storage)
             wizard.bind(on_wizard_complete=self.on_wizard_complete)
@@ -672,8 +673,8 @@ class ElectrumWindow(App):
                 from plyer import notification
             icon = (os.path.dirname(os.path.realpath(__file__))
                     + '/../../' + self.icon)
-            notification.notify('Electrum', message,
-                            app_icon=icon, app_name='Electrum')
+            notification.notify(get_display_name(), message,
+                            app_icon=icon, app_name=get_display_name())
         except ImportError:
             Logger.Error('Notification: needs plyer; `sudo pip install plyer`')
 

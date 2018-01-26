@@ -46,8 +46,11 @@ from . import rsakey
 
 from .bitcoin import TYPE_ADDRESS
 
-REQUEST_HEADERS = {'Accept': 'application/bitcoin-paymentrequest', 'User-Agent': 'Electrum'}
-ACK_HEADERS = {'Content-Type':'application/bitcoin-payment','Accept':'application/bitcoin-paymentack','User-Agent':'Electrum'}
+from lib.tes.util import get_display_name
+
+REQUEST_HEADERS = {'Accept': 'application/bitcoin-paymentrequest', 'User-Agent': get_display_name()}
+ACK_HEADERS = {'Content-Type': 'application/bitcoin-payment', 'Accept': 'application/bitcoin-paymentack',
+               'User-Agent': get_display_name()}
 
 ca_path = requests.certs.where()
 ca_list = None
