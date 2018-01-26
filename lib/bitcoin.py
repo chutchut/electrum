@@ -75,8 +75,8 @@ class NetworkConstants:
     def set_mainnet(cls):
         cls.TESTNET = False
         cls.WIF_PREFIX = 0x80
-        cls.ADDRTYPE_P2PKH = 0
-        cls.ADDRTYPE_P2SH = 5
+        cls.ADDRTYPE_P2PKH = 11 # https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/base58.h#L279
+        cls.ADDRTYPE_P2SH = 8   # https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/base58.h#L280
         cls.SEGWIT_HRP = "bc"
         cls.GENESIS = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
         cls.DEFAULT_PORTS = {'t': '50001', 's': '50002'}
@@ -619,7 +619,7 @@ from ecdsa.util import string_to_number, number_to_string
 
 def msg_magic(message):
     length = bfh(var_int(len(message)))
-    return b"\x18Bitcoin Signed Message:\n" + length + message
+    return b"Teslacoin Signed Message:\n" + length + message
 
 
 def verify_message(address, sig, message):
@@ -961,7 +961,7 @@ def xpub_from_xprv(xprv):
 
 
 def bip32_root(seed, xtype):
-    I = hmac.new(b"Bitcoin seed", seed, hashlib.sha512).digest()
+    I = hmac.new(b"Teslacoin seed", seed, hashlib.sha512).digest()
     master_k = I[0:32]
     master_c = I[32:]
     K, cK = get_pubkeys_from_secret(master_k)
