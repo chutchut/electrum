@@ -27,7 +27,7 @@
 
 # Note: The deserialization code originally comes from ABE.
 
-from .util import print_error, profiler
+from .util import print_msg, print_error, profiler
 
 from . import bitcoin
 from .bitcoin import *
@@ -148,6 +148,124 @@ class BCDataStream(object):
         s = struct.pack(format, num)
         self.write(s)
 
+
+class TESDataStream(object):
+    def __init__(self):
+        self.input = None
+        self.read_cursor = 0
+
+    def clear(self):
+        self.input = None
+        self.read_cursor = 0
+
+    def write(self, _bytes):  # Initialize with string of _bytes
+        if self.input is None:
+            self.input = bytearray(_bytes)
+            print_msg("Set input for TESDataStream:", self.input)
+        else:
+            self.input += bytearray(_bytes)
+            print_msg("Add to input for TESDataStream:", self.input)
+
+    def read_string(self, encoding='ascii'):
+        # Strings are encoded depending on length:
+        # 0 to 252 :  1-byte-length followed by bytes (if any)
+        # 253 to 65,535 : byte'253' 2-byte-length followed by bytes
+        # 65,536 to 4,294,967,295 : byte '254' 4-byte-length followed by bytes
+        # ... and the Bitcoin client is coded to understand:
+        # greater than 4,294,967,295 : byte '255' 8-byte-length followed by bytes of string
+        # ... but I don't think it actually handles any strings that big.
+        if self.input is None:
+            raise SerializationError("call write(bytes) before trying to deserialize")
+
+        length = self.read_compact_size()
+        print_msg("read_string() length:", length)
+
+        content = self.read_bytes(length).decode(encoding)
+        print_msg("read_string() result:", content)
+
+        return content
+
+    def write_string(self, string, encoding='ascii'):
+        string = to_bytes(string, encoding)
+        # Length-encoded as with read-string
+        self.write_compact_size(len(string))
+        self.write(string)
+
+    def read_bytes(self, length):
+        try:
+            self.report_buffer()
+            print_msg("read_bytes() length:", length)
+            result = self.input[self.read_cursor:self.read_cursor+length]
+            print_msg("read_bytes() result:", result)
+            self.read_cursor += length
+            return result
+        except IndexError:
+            raise SerializationError("attempt to read past end of buffer")
+
+    def read_boolean(self): return self.read_bytes(1)[0] != chr(0)
+    def read_int16(self): return self._read_num('<h')
+    def read_uint16(self): return self._read_num('<H')
+    def read_int32(self): return self._read_num('<i')
+    def read_uint32(self): return self._read_num('<I')
+    def read_int64(self): return self._read_num('<q')
+    def read_uint64(self): return self._read_num('<Q')
+
+    def write_boolean(self, val): return self.write(chr(1) if val else chr(0))
+    def write_int16(self, val): return self._write_num('<h', val)
+    def write_uint16(self, val): return self._write_num('<H', val)
+    def write_int32(self, val): return self._write_num('<i', val)
+    def write_uint32(self, val): return self._write_num('<I', val)
+    def write_int64(self, val): return self._write_num('<q', val)
+    def write_uint64(self, val): return self._write_num('<Q', val)
+
+    def read_compact_size(self):
+        try:
+            size = self.input[self.read_cursor]
+            self.read_cursor += 1
+            if size == 253:
+                size = self._read_num('<H')
+            elif size == 254:
+                size = self._read_num('<I')
+            elif size == 255:
+                size = self._read_num('<Q')
+            return size
+        except IndexError:
+            raise SerializationError("attempt to read past end of buffer")
+
+    def write_compact_size(self, size):
+        if size < 0:
+            raise SerializationError("attempt to write size < 0")
+        elif size < 253:
+            self.write(bytes([size]))
+        elif size < 2**16:
+            self.write(b'\xfd')
+            self._write_num('<H', size)
+        elif size < 2**32:
+            self.write(b'\xfe')
+            self._write_num('<I', size)
+        elif size < 2**64:
+            self.write(b'\xff')
+            self._write_num('<Q', size)
+
+    def _read_num(self, format):
+        try:
+            self.report_buffer()
+            print_msg("_read_num() format:", format)
+            (i,) = struct.unpack_from(format, self.input, self.read_cursor)
+            print_msg("_read_num() result:", i)
+            self.read_cursor += struct.calcsize(format)
+        except Exception as e:
+            raise SerializationError(e)
+        return i
+
+    def _write_num(self, format, num):
+        s = struct.pack(format, num)
+        self.write(s)
+
+    def report_buffer(self):
+        buf_len = len(self.input)
+        print_msg("Buffer length: {}, cursor: {}, remaining: {}".format(buf_len, self.read_cursor,
+                                                                        buf_len - self.read_cursor))
 
 # enum-like type
 # From the Python Cookbook, downloaded from http://code.activestate.com/recipes/67107/
@@ -272,12 +390,15 @@ def decode_script(bytes):
 
 def match_decoded(decoded, to_match):
     if len(decoded) != len(to_match):
-        return False;
+        print_msg("match_decoded() list length mismatch (expected {}, got {})".format(len(decoded), len(to_match)))
+        return False
     for i in range(len(decoded)):
         if to_match[i] == opcodes.OP_PUSHDATA4 and decoded[i][0] <= opcodes.OP_PUSHDATA4 and decoded[i][0]>0:
             continue  # Opcodes below OP_PUSHDATA4 all just push data onto stack, and are equivalent.
         if to_match[i] != decoded[i][0]:
+            print_msg("match_decoded() unexpected opcode (expected {}, got {})".format(to_match[i], decoded[i][0]))
             return False
+    print_msg("match_decoded() opcodes match")
     return True
 
 
@@ -293,6 +414,7 @@ def safe_parse_pubkey(x):
 def parse_scriptSig(d, _bytes):
     try:
         decoded = [ x for x in script_GetOp(_bytes) ]
+        print_msg("parse_scriptSig() decoded:", decoded)
     except Exception as e:
         # coinbase transactions raise an exception
         print_error("cannot find address in input script", bh2u(_bytes))
@@ -398,9 +520,13 @@ def get_address_from_output_script(_bytes):
 def parse_input(vds):
     d = {}
     prevout_hash = hash_encode(vds.read_bytes(32))
+    print_msg("parse_input() prevout_hash:", prevout_hash)
     prevout_n = vds.read_uint32()
+    print_msg("parse_input() prevout_n:", prevout_n)
     scriptSig = vds.read_bytes(vds.read_compact_size())
+    print_msg("parse_input() scriptSig:", scriptSig)
     sequence = vds.read_uint32()
+    print_msg("parse_input() sequence:", sequence)
     d['prevout_hash'] = prevout_hash
     d['prevout_n'] = prevout_n
     d['sequence'] = sequence
@@ -419,6 +545,8 @@ def parse_input(vds):
             parse_scriptSig(d, scriptSig)
         else:
             d['scriptSig'] = ''
+
+    print_msg("parse_input() decoded::", d)
 
     return d
 
@@ -457,20 +585,28 @@ def parse_output(vds, i):
 
 
 def deserialize(raw):
-    vds = BCDataStream()
+    vds = TESDataStream()
     vds.write(bfh(raw))
     d = {}
     start = vds.read_cursor
     d['version'] = vds.read_int32()
+    print_msg("deserialize() version:", d['version'])
     n_vin = vds.read_compact_size()
+    print_msg("deserialize() n_vin:", n_vin)
     is_segwit = (n_vin == 0)
     if is_segwit:
+        print_msg("deserialize() is_segwit")
         marker = vds.read_bytes(1)
+        print_msg("deserialize() is_segwit marker:", marker)
         assert marker == b'\x01'
         n_vin = vds.read_compact_size()
+        print_msg("deserialize() n_vin:", n_vin)
     d['inputs'] = [parse_input(vds) for i in range(n_vin)]
+    print_msg("deserialize() inputs:", d['inputs'])
     n_vout = vds.read_compact_size()
+    print_msg("deserialize() n_vout:", n_vin)
     d['outputs'] = [parse_output(vds, i) for i in range(n_vout)]
+    print_msg("deserialize() outputs:", d['outputs'])
     if is_segwit:
         for i in range(n_vin):
             txin = d['inputs'][i]
@@ -484,6 +620,7 @@ def deserialize(raw):
                     txin['type'] = 'p2wsh'
                     txin['address'] = bitcoin.script_to_p2wsh(txin['witnessScript'])
     d['lockTime'] = vds.read_uint32()
+    print_msg("deserialize() lockTime:", d['lockTime'])
     return d
 
 
