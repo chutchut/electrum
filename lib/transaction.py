@@ -591,6 +591,8 @@ def deserialize(raw):
     start = vds.read_cursor
     d['version'] = vds.read_int32()
     print_msg("deserialize() version:", d['version'])
+    d['time'] = vds.read_uint32()
+    print_msg("deserialize() time:", d['time'])
     n_vin = vds.read_compact_size()
     print_msg("deserialize() n_vin:", n_vin)
     is_segwit = (n_vin == 0)
