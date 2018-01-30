@@ -63,6 +63,8 @@ from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .paymentrequest import InvoiceStore
 from .contacts import Contacts
 
+from lib.tes.util import tes_print_msg, tes_print_error
+
 TX_STATUS = [
     _('Replaceable'),
     _('Unconfirmed parent'),
@@ -405,12 +407,15 @@ class Abstract_Wallet(PrintError):
 
     def get_tx_height(self, tx_hash):
         """ return the height and timestamp of a verified transaction. """
+        tes_print_msg("Getting tx height for: {}".format(tx_hash))
         with self.lock:
             if tx_hash in self.verified_tx:
+                tes_print_msg("tx {} is verified".format(tx_hash))
                 height, timestamp, pos = self.verified_tx[tx_hash]
                 conf = max(self.get_local_height() - height + 1, 0)
                 return height, conf, timestamp
             else:
+                tes_print_msg("tx {} is unverified".format(tx_hash))
                 height = self.unverified_tx[tx_hash]
                 return height, 0, False
 

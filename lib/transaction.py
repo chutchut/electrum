@@ -27,7 +27,7 @@
 
 # Note: The deserialization code originally comes from ABE.
 
-from .util import print_msg, print_error, profiler
+from .util import print_error, profiler
 
 from . import bitcoin
 from .bitcoin import *
@@ -37,6 +37,8 @@ import struct
 # Workalike python implementation of Bitcoin's CDataStream class.
 #
 from .keystore import xpubkey_to_address, xpubkey_to_pubkey
+
+from lib.tes.util import tes_print_msg
 
 NO_SIGNATURE = 'ff'
 
@@ -161,10 +163,10 @@ class TESDataStream(object):
     def write(self, _bytes):  # Initialize with string of _bytes
         if self.input is None:
             self.input = bytearray(_bytes)
-            # print_msg("Set input for TESDataStream:", self.input)
+            tes_print_msg("Set input for TESDataStream:", self.input)
         else:
             self.input += bytearray(_bytes)
-            # print_msg("Add to input for TESDataStream:", self.input)
+            tes_print_msg("Add to input for TESDataStream:", self.input)
 
     def read_string(self, encoding='ascii'):
         # Strings are encoded depending on length:
@@ -178,10 +180,10 @@ class TESDataStream(object):
             raise SerializationError("call write(bytes) before trying to deserialize")
 
         length = self.read_compact_size()
-        # print_msg("read_string() length:", length)
+        tes_print_msg("read_string() length:", length)
 
         content = self.read_bytes(length).decode(encoding)
-        # print_msg("read_string() result:", content)
+        tes_print_msg("read_string() result:", content)
 
         return content
 
@@ -193,10 +195,10 @@ class TESDataStream(object):
 
     def read_bytes(self, length):
         try:
-            # self.report_buffer()
-            # print_msg("read_bytes() length:", length)
+            self.report_buffer()
+            tes_print_msg("read_bytes() length:", length)
             result = self.input[self.read_cursor:self.read_cursor+length]
-            # print_msg("read_bytes() result:", result)
+            tes_print_msg("read_bytes() result:", result)
             self.read_cursor += length
             return result
         except IndexError:
@@ -249,10 +251,10 @@ class TESDataStream(object):
 
     def _read_num(self, format):
         try:
-            # self.report_buffer()
-            # print_msg("_read_num() format:", format)
+            self.report_buffer()
+            tes_print_msg("_read_num() format:", format)
             (i,) = struct.unpack_from(format, self.input, self.read_cursor)
-            # print_msg("_read_num() result:", i)
+            tes_print_msg("_read_num() result:", i)
             self.read_cursor += struct.calcsize(format)
         except Exception as e:
             raise SerializationError(e)
@@ -264,7 +266,7 @@ class TESDataStream(object):
 
     def report_buffer(self):
         buf_len = len(self.input)
-        print_msg("Buffer length: {}, cursor: {}, remaining: {}".format(buf_len, self.read_cursor,
+        tes_print_msg("Buffer length: {}, cursor: {}, remaining: {}".format(buf_len, self.read_cursor,
                                                                         buf_len - self.read_cursor))
 
 # enum-like type
@@ -390,15 +392,15 @@ def decode_script(bytes):
 
 def match_decoded(decoded, to_match):
     if len(decoded) != len(to_match):
-        # print_msg("match_decoded() list length mismatch (expected {}, got {})".format(len(decoded), len(to_match)))
+        tes_print_msg("match_decoded() list length mismatch (expected {}, got {})".format(len(decoded), len(to_match)))
         return False
     for i in range(len(decoded)):
         if to_match[i] == opcodes.OP_PUSHDATA4 and decoded[i][0] <= opcodes.OP_PUSHDATA4 and decoded[i][0]>0:
             continue  # Opcodes below OP_PUSHDATA4 all just push data onto stack, and are equivalent.
         if to_match[i] != decoded[i][0]:
-            # print_msg("match_decoded() unexpected opcode (expected {}, got {})".format(to_match[i], decoded[i][0]))
+            tes_print_msg("match_decoded() unexpected opcode (expected {}, got {})".format(to_match[i], decoded[i][0]))
             return False
-    # print_msg("match_decoded() opcodes match")
+    tes_print_msg("match_decoded() opcodes match")
     return True
 
 
@@ -414,7 +416,7 @@ def safe_parse_pubkey(x):
 def parse_scriptSig(d, _bytes):
     try:
         decoded = [ x for x in script_GetOp(_bytes) ]
-        # print_msg("parse_scriptSig() decoded:", decoded)
+        tes_print_msg("parse_scriptSig() decoded:", decoded)
     except Exception as e:
         # coinbase transactions raise an exception
         print_error("cannot find address in input script", bh2u(_bytes))
@@ -520,13 +522,13 @@ def get_address_from_output_script(_bytes):
 def parse_input(vds):
     d = {}
     prevout_hash = hash_encode(vds.read_bytes(32))
-    # print_msg("parse_input() prevout_hash:", prevout_hash)
+    tes_print_msg("parse_input() prevout_hash:", prevout_hash)
     prevout_n = vds.read_uint32()
-    # print_msg("parse_input() prevout_n:", prevout_n)
+    tes_print_msg("parse_input() prevout_n:", prevout_n)
     scriptSig = vds.read_bytes(vds.read_compact_size())
-    # print_msg("parse_input() scriptSig:", scriptSig)
+    tes_print_msg("parse_input() scriptSig:", scriptSig)
     sequence = vds.read_uint32()
-    # print_msg("parse_input() sequence:", sequence)
+    tes_print_msg("parse_input() sequence:", sequence)
     d['prevout_hash'] = prevout_hash
     d['prevout_n'] = prevout_n
     d['sequence'] = sequence
@@ -546,7 +548,7 @@ def parse_input(vds):
         else:
             d['scriptSig'] = ''
 
-    # print_msg("parse_input() decoded::", d)
+    tes_print_msg("parse_input() decoded::", d)
 
     return d
 
@@ -590,25 +592,25 @@ def deserialize(raw):
     d = {}
     start = vds.read_cursor
     d['version'] = vds.read_int32()
-    # print_msg("deserialize() version:", d['version'])
+    tes_print_msg("deserialize() version:", d['version'])
     d['time'] = vds.read_uint32()
-    # print_msg("deserialize() time:", d['time'])
+    tes_print_msg("deserialize() time:", d['time'])
     n_vin = vds.read_compact_size()
-    # print_msg("deserialize() n_vin:", n_vin)
+    tes_print_msg("deserialize() n_vin:", n_vin)
     is_segwit = (n_vin == 0)
     if is_segwit:
-        # print_msg("deserialize() is_segwit")
+        tes_print_msg("deserialize() is_segwit")
         marker = vds.read_bytes(1)
-        # print_msg("deserialize() is_segwit marker:", marker)
+        tes_print_msg("deserialize() is_segwit marker:", marker)
         assert marker == b'\x01'
         n_vin = vds.read_compact_size()
-        # print_msg("deserialize() n_vin:", n_vin)
+        tes_print_msg("deserialize() n_vin:", n_vin)
     d['inputs'] = [parse_input(vds) for i in range(n_vin)]
-    # print_msg("deserialize() inputs:", d['inputs'])
+    tes_print_msg("deserialize() inputs:", d['inputs'])
     n_vout = vds.read_compact_size()
-    # print_msg("deserialize() n_vout:", n_vin)
+    tes_print_msg("deserialize() n_vout:", n_vin)
     d['outputs'] = [parse_output(vds, i) for i in range(n_vout)]
-    # print_msg("deserialize() outputs:", d['outputs'])
+    tes_print_msg("deserialize() outputs:", d['outputs'])
     if is_segwit:
         for i in range(n_vin):
             txin = d['inputs'][i]
@@ -622,7 +624,7 @@ def deserialize(raw):
                     txin['type'] = 'p2wsh'
                     txin['address'] = bitcoin.script_to_p2wsh(txin['witnessScript'])
     d['lockTime'] = vds.read_uint32()
-    # print_msg("deserialize() lockTime:", d['lockTime'])
+    tes_print_msg("deserialize() lockTime:", d['lockTime'])
     return d
 
 

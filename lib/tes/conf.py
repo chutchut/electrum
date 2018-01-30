@@ -4,6 +4,8 @@
 
 # Config
 
+TESLACOIN_DEBUG = True
+
 ELECTRUM_BASE_NAME = 'Electrum'
 TESLACOIN_CODE = 'TES'
 TESLACOIN_NAME = 'Teslacoin'
