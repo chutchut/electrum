@@ -83,11 +83,11 @@ class TESAmountEdit(AmountEdit):
 
     def _base_unit(self):
         p = self.decimal_point()
-        if p == 8:
+        if p == 6:
             return TESLACOIN_CODE
-        if p == 5:
+        if p == 3:
             return 'm{}'.format(TESLACOIN_CODE)
-        if p == 2:
+        if p == 0:
             return 'u{}'.format(TESLACOIN_CODE)
         raise Exception('Unknown base unit')
 

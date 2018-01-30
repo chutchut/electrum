@@ -641,12 +641,12 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         return self.decimal_point
 
     def base_unit(self):
-        assert self.decimal_point in [2, 5, 8]
-        if self.decimal_point == 2:
+        assert self.decimal_point in [0, 3, 6]
+        if self.decimal_point == 0:
             return 'u{}'.format(TESLACOIN_CODE)
-        if self.decimal_point == 5:
+        if self.decimal_point == 3:
             return 'm{}'.format(TESLACOIN_CODE)
-        if self.decimal_point == 8:
+        if self.decimal_point == 6:
             return TESLACOIN_CODE
         raise Exception('Unknown base unit')
 
@@ -2689,11 +2689,11 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             edits = self.amount_e, self.fee_e, self.receive_amount_e
             amounts = [edit.get_amount() for edit in edits]
             if unit_result == TESLACOIN_CODE:
-                self.decimal_point = 8
+                self.decimal_point = 6
             elif unit_result == 'm{}'.format(TESLACOIN_CODE):
-                self.decimal_point = 5
+                self.decimal_point = 3
             elif unit_result == 'u{}'.format(TESLACOIN_CODE):
-                self.decimal_point = 2
+                self.decimal_point = 0
             else:
                 raise Exception('Unknown base unit')
             self.config.set_key('decimal_point', self.decimal_point, True)
