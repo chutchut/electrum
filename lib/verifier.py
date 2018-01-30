@@ -23,6 +23,8 @@
 from .util import ThreadJob
 from .bitcoin import *
 
+from lib.tes.util import tes_print_msg
+
 
 class SPV(ThreadJob):
     """ Simple Payment Verification """
@@ -38,8 +40,10 @@ class SPV(ThreadJob):
 
     def run(self):
         lh = self.network.get_local_height()
+        tes_print_msg("Started verifier job, local height: {}".format(lh))
         unverified = self.wallet.get_unverified_txs()
         for tx_hash, tx_height in unverified.items():
+            tes_print_msg("Verifying unverified tx: {}, height: {}".format(tx_hash, tx_height))
             # do not request merkle branch before headers are available
             if (tx_height > 0) and (tx_height <= lh):
                 header = self.network.blockchain().read_header(tx_height)
@@ -75,8 +79,11 @@ class SPV(ThreadJob):
         tx_hash = params[0]
         tx_height = merkle.get('block_height')
         pos = merkle.get('pos')
+        tes_print_msg("Attempting to verify tx. Hash {}, height: {}, pos: {}, params: {}"
+                      .format(tx_hash, tx_height, pos, params))
         merkle_root = self.hash_merkle_root(merkle['merkle'], tx_hash, pos)
         header = self.network.blockchain().read_header(tx_height)
+        tes_print_msg("Merkle root: {}, header: {}".format(merkle_root, header))
         if not header or header.get('merkle_root') != merkle_root:
             # FIXME: we should make a fresh connection to a server to
             # recover from this, as this TX will now never verify

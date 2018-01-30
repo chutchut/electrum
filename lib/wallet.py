@@ -980,6 +980,7 @@ class Abstract_Wallet(PrintError):
                 self.transactions.pop(tx_hash)
 
     def start_threads(self, network):
+        tes_print_msg("Starting threads for wallet")
         self.network = network
         if self.network is not None:
             self.prepare_for_verifier()
@@ -987,6 +988,7 @@ class Abstract_Wallet(PrintError):
             self.synchronizer = Synchronizer(self, network)
             network.add_jobs([self.verifier, self.synchronizer])
         else:
+            tes_print_msg("Network is null (disconnected), disable verifier and synchronizer")
             self.verifier = None
             self.synchronizer = None
 
