@@ -87,12 +87,13 @@ if is_local or is_android:
     imp.load_module('electrum_plugins', *imp.find_module('plugins'))
 
 
-from electrum import bitcoin
+
+from electrum import bitcoin, util
 from electrum import SimpleConfig, Network
 from electrum.wallet import Wallet, Imported_Wallet
 from electrum.storage import WalletStorage
 from electrum.util import print_msg, print_stderr, json_encode, json_decode
-from electrum.util import set_verbosity, InvalidPassword, check_www_dir
+from electrum.util import set_verbosity, InvalidPassword
 from electrum.commands import get_parser, known_commands, Commands, config_variables
 from electrum import daemon
 from electrum import keystore
@@ -278,7 +279,8 @@ def run_offline_command(config, config_options):
     # arguments passed to function
     args = [config.get(x) for x in cmd.params]
     # decode json arguments
-    args = list(map(json_decode, args))
+    if cmdname not in ('setconfig',):
+        args = list(map(json_decode, args))
     # options
     kwargs = {}
     for x in cmd.options:
@@ -295,8 +297,10 @@ def init_plugins(config, gui_name):
     from electrum.plugins import Plugins
     return Plugins(config, is_local or is_android, gui_name)
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
+    # The hook will only be used in the Qt GUI right now
+    util.setup_thread_excepthook()
     # on osx, delete Process Serial Number arg generated for apps launched in Finder
     sys.argv = list(filter(lambda x: not x.startswith('-psn'), sys.argv))
 
@@ -399,7 +403,11 @@ if __name__ == '__main__':
                     from electrum import websockets
                     websockets.WebSocketServer(config, d.network).start()
                 if config.get('requests_dir'):
-                    check_www_dir(config.get('requests_dir'))
+                    path = os.path.join(config.get('requests_dir'), 'index.html')
+                    if not os.path.exists(path):
+                        print("Requests directory not configured.")
+                        print("You can configure it using https://github.com/spesmilo/electrum-merchant")
+                        sys.exit(1)
                 d.join()
                 sys.exit(0)
             else:

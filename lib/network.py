@@ -137,7 +137,7 @@ def deserialize_proxy(s):
 
 
 def deserialize_server(server_str):
-    host, port, protocol = str(server_str).split(':')
+    host, port, protocol = str(server_str).rsplit(':', 2)
     assert protocol in 'st'
     int(port)    # Throw if cannot be converted to int
     return host, port, protocol
@@ -171,15 +171,15 @@ class Network(util.DaemonThread):
         self.blockchain_index = config.get('blockchain_index', 0)
         if self.blockchain_index not in self.blockchains.keys():
             self.blockchain_index = 0
-        self.protocol = 't' if self.config.get('nossl') else 's'
         # Server for addresses and transactions
-        self.default_server = self.config.get('server')
+        self.default_server = self.config.get('server', None)
         # Sanitize default server
-        try:
-            host, port, protocol = deserialize_server(self.default_server)
-            assert protocol == self.protocol
-        except:
-            self.default_server = None
+        if self.default_server:
+            try:
+                deserialize_server(self.default_server)
+            except:
+                self.print_error('Warning: failed to parse server-string; falling back to random.')
+                self.default_server = None
         if not self.default_server:
             self.default_server = pick_random_server()
         self.lock = threading.Lock()
@@ -218,8 +218,10 @@ class Network(util.DaemonThread):
         self.interfaces = {}
         self.auto_connect = self.config.get('auto_connect', True)
         self.connecting = set()
+        self.requested_chunks = set()
         self.socket_queue = queue.Queue()
-        self.start_network(self.protocol, deserialize_proxy(self.config.get('proxy')))
+        self.start_network(deserialize_server(self.default_server)[2],
+                           deserialize_proxy(self.config.get('proxy')))
 
     def register_callback(self, callback, events):
         with self.lock:
@@ -304,6 +306,9 @@ class Network(util.DaemonThread):
         # Resend unanswered requests
         requests = self.unanswered_requests.values()
         self.unanswered_requests = {}
+        if self.interface.ping_required():
+            params = [ELECTRUM_VERSION, PROTOCOL_VERSION]
+            self.queue_request('server.version', params, self.interface)
         for request in requests:
             message_id = self.queue_request(request[0], request[1])
             self.unanswered_requests[message_id] = request
@@ -312,9 +317,6 @@ class Network(util.DaemonThread):
         self.queue_request('server.peers.subscribe', [])
         self.request_fee_estimates()
         self.queue_request('blockchain.relayfee', [])
-        if self.interface.ping_required():
-            params = [ELECTRUM_VERSION, PROTOCOL_VERSION]
-            self.queue_request('server.version', params, self.interface)
         for h in self.subscribed_addresses:
             self.queue_request('blockchain.scripthash.subscribe', [h])
 
@@ -754,11 +756,12 @@ class Network(util.DaemonThread):
             if self.config.is_fee_estimates_update_required():
                 self.request_fee_estimates()
 
-    def request_chunk(self, interface, idx):
-        interface.print_error("requesting chunk %d" % idx)
-        self.queue_request('blockchain.block.get_chunk', [idx], interface)
-        interface.request = idx
-        interface.req_time = time.time()
+    def request_chunk(self, interface, index):
+        if index in self.requested_chunks:
+            return
+        interface.print_error("requesting chunk %d" % index)
+        self.requested_chunks.add(index)
+        self.queue_request('blockchain.block.get_chunk', [index], interface)
 
     def on_get_chunk(self, interface, response):
         '''Handle receiving a chunk of block headers'''
@@ -768,19 +771,19 @@ class Network(util.DaemonThread):
         if result is None or params is None or error is not None:
             interface.print_error(error or 'bad response')
             return
-        # Ignore unsolicited chunks
         index = params[0]
-        if interface.request != index:
+        # Ignore unsolicited chunks
+        if index not in self.requested_chunks:
             return
+        self.requested_chunks.remove(index)
         connect = interface.blockchain.connect_chunk(index, result)
-        # If not finished, get the next chunk
         if not connect:
             self.connection_down(interface.server)
             return
+        # If not finished, get the next chunk
         if interface.blockchain.height() < interface.tip:
             self.request_chunk(interface, index+1)
         else:
-            interface.request = None
             interface.mode = 'default'
             interface.print_error('catch up done', interface.blockchain.height())
             interface.blockchain.catch_up = None
