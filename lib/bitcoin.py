@@ -78,7 +78,7 @@ class NetworkConstants:
         cls.ADDRTYPE_P2PKH = 11 # https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/base58.h#L279
         cls.ADDRTYPE_P2SH = 8   # https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/base58.h#L280
         cls.SEGWIT_HRP = "bc"
-        cls.GENESIS = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+        cls.GENESIS = "000002d236d1bd8aa49f17e98117db81491d2127c5621464258e7542d95aba77" # https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.h#L65
         cls.DEFAULT_PORTS = {'t': '50001', 's': '50002'}
         cls.DEFAULT_SERVERS = read_json('servers.json', {})
         cls.CHECKPOINTS = read_json('checkpoints.json', [])
