@@ -41,6 +41,8 @@ from .interface import Connection, Interface
 from . import blockchain
 from .version import ELECTRUM_VERSION, PROTOCOL_VERSION
 
+from lib.tes.util import tes_print_msg, tes_print_error
+
 
 NODES_RETRY_INTERVAL = 60
 SERVER_RETRY_INTERVAL = 10
@@ -182,6 +184,9 @@ class Network(util.DaemonThread):
                 self.default_server = None
         if not self.default_server:
             self.default_server = pick_random_server()
+
+        tes_print_msg("Default server is: {}".format(self.default_server))
+
         self.lock = threading.Lock()
         self.pending_sends = []
         self.message_id = 0
@@ -487,7 +492,9 @@ class Network(util.DaemonThread):
         happen on receipt of the connection notification.  Do nothing
         if server already is our interface.'''
         self.default_server = server
+        tes_print_msg("Switching to interface: {}".format(server))
         if server not in self.interfaces:
+            tes_print_msg("Server not in list of interfaces, starting..")
             self.interface = None
             self.start_interface(server)
             return
@@ -497,6 +504,7 @@ class Network(util.DaemonThread):
             # stop any current interface in order to terminate subscriptions
             # fixme: we don't want to close headers sub
             #self.close_interface(self.interface)
+            tes_print_msg("Setting current interface to: {}".format(i.socket))
             self.interface = i
             self.send_subscriptions()
             self.set_status('connected')
@@ -697,6 +705,7 @@ class Network(util.DaemonThread):
 
     def new_interface(self, server, socket):
         # todo: get tip first, then decide which checkpoint to use.
+        tes_print_msg("Got new interface. Server: {}, socket: {}".format(server, socket))
         self.add_recent_server(server)
         interface = Interface(server, socket)
         interface.blockchain = None
@@ -798,6 +807,7 @@ class Network(util.DaemonThread):
     def on_get_header(self, interface, response):
         '''Handle receiving a single block header'''
         header = response.get('result')
+        tes_print_msg("Got header from interface: {}".format(header))
         if not header:
             interface.print_error(response)
             self.connection_down(interface.server)
@@ -808,6 +818,7 @@ class Network(util.DaemonThread):
             self.connection_down(interface.server)
             return
         chain = blockchain.check_header(header)
+        tes_print_msg("Got chain from header: {}, mode: {}".format(chain, interface.mode))
         if interface.mode == 'backward':
             can_connect = blockchain.can_connect(header)
             if can_connect and can_connect.catch_up is None:
@@ -1019,6 +1030,14 @@ class Network(util.DaemonThread):
     def blockchain(self):
         if self.interface and self.interface.blockchain is not None:
             self.blockchain_index = self.interface.blockchain.checkpoint
+            tes_print_msg("Got interface ({}) and blockchain: {}".format(self.interface, self.interface.blockchain))
+            tes_print_msg("Interface blockchain checkpoint: {}, local height: {}"
+                          .format(self.interface.blockchain.checkpoint,
+                                  self.blockchains[self.blockchain_index].height()))
+        else:
+            stored_height = self.blockchains[self.blockchain_index].height()
+            tes_print_error("Interface blockchain is null. Stored height: {}, hash: {}"
+                            .format(stored_height, self.blockchains[self.blockchain_index].get_hash(stored_height)))
         return self.blockchains[self.blockchain_index]
 
     def get_blockchains(self):

@@ -5,6 +5,9 @@
 # Config
 
 TESLACOIN_DEBUG = True
+TESLACOIN_DEBUG_IGNORE = [
+    'verifier.py::run()'
+]
 
 ELECTRUM_BASE_NAME = 'Electrum'
 TESLACOIN_CODE = 'TES'

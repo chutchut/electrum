@@ -39,15 +39,24 @@ def get_caller():
     return '{}::{}()'.format(get_base_path(inspect.stack()[2][1]), inspect.stack()[2][3])
 
 
+def is_ignored_caller(caller):
+    for exc in TESLACOIN_DEBUG_IGNORE:
+        if exc in caller:
+            return True
+    return False
+
+
 def tes_print_msg(*args):
-    if TESLACOIN_DEBUG:
+    caller = get_caller()
+    if TESLACOIN_DEBUG and not is_ignored_caller(caller):
         from lib.util import print_msg
-        print_msg('[TESDEBUG::MSG] [{}]:'.format(get_caller()), *args)
+        print_msg('[TESDEBUG::MSG] [{}]:'.format(caller), *args)
 
 
 def tes_print_error(*args):
-    if TESLACOIN_DEBUG:
+    caller = get_caller()
+    if TESLACOIN_DEBUG and not is_ignored_caller(caller):
         from lib.util import is_verbose, set_verbosity, print_error
         if not is_verbose:
             set_verbosity(True)
-        print_error('[TESDEBUG::ERR] [{}]:'.format(get_caller()), *args)
+        print_error('[TESDEBUG::ERR] [{}]:'.format(caller), *args)

@@ -652,7 +652,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         return self.decimal_point
 
     def base_unit(self):
-        assert self.decimal_point in [0, 3, 6]
+        # Set default base unit if unexpected
+        if self.decimal_point not in [0, 3, 6]:
+            self.decimal_point = 6
         if self.decimal_point == 0:
             return 'u{}'.format(TESLACOIN_CODE)
         if self.decimal_point == 3:
