@@ -31,6 +31,7 @@ import json
 
 import ecdsa
 import pyaes
+import scrypt
 
 from .util import bfh, bh2u, to_string
 from . import version
@@ -247,6 +248,9 @@ def Hash(x):
     out = bytes(sha256(sha256(x)))
     return out
 
+
+# Ripped from ElectrumX ScryptMixin header_hash()
+TESHash = lambda x: scrypt.hash(x, x, 1024, 1, 1, 32)
 
 hash_encode = lambda x: bh2u(x[::-1])
 hash_decode = lambda x: bfh(x)[::-1]

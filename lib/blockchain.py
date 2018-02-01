@@ -27,7 +27,10 @@ from . import util
 from . import bitcoin
 from .bitcoin import *
 
+from lib.tes.util import tes_print_msg, tes_print_error
+
 MAX_TARGET = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+
 
 def serialize_header(res):
     s = int_to_hex(res.get('version'), 4) \
@@ -37,6 +40,7 @@ def serialize_header(res):
         + int_to_hex(int(res.get('bits')), 4) \
         + int_to_hex(int(res.get('nonce')), 4)
     return s
+
 
 def deserialize_header(s, height):
     hex_to_int = lambda s: int('0x' + bh2u(s[::-1]), 16)
@@ -50,15 +54,17 @@ def deserialize_header(s, height):
     h['block_height'] = height
     return h
 
+
 def hash_header(header):
     if header is None:
         return '0' * 64
     if header.get('prev_block_hash') is None:
         header['prev_block_hash'] = '00'*32
-    return hash_encode(Hash(bfh(serialize_header(header))))
+    return hash_encode(TESHash(bfh(serialize_header(header))))
 
 
 blockchains = {}
+
 
 def read_blockchains(config):
     blockchains[0] = Blockchain(config, 0, None)
@@ -78,6 +84,7 @@ def read_blockchains(config):
             util.print_error("cannot connect", filename)
     return blockchains
 
+
 def check_header(header):
     if type(header) is not dict:
         return False
@@ -85,6 +92,7 @@ def check_header(header):
         if b.check_header(header):
             return b
     return False
+
 
 def can_connect(header):
     for b in blockchains.values():
@@ -312,16 +320,26 @@ class Blockchain(util.PrintError):
 
     def can_connect(self, header, check_height=True):
         height = header['block_height']
+        tes_print_msg("Current height from header: {}, checkpoint: {}".format(height, self.height()))
         if check_height and self.height() != height - 1:
+            tes_print_error("Height mismatch, return False")
             #self.print_error("cannot connect at height", height)
             return False
         if height == 0:
-            return hash_header(header) == bitcoin.NetworkConstants.GENESIS
+            height_0_hash = hash_header(header)
+            if height_0_hash != bitcoin.NetworkConstants.GENESIS:
+                tes_print_error("Hash at height 0 does not match genesis hash. Expected: {}, got: {}"
+                                .format(bitcoin.NetworkConstants.GENESIS, height_0_hash))
+            else:
+                tes_print_msg("Hash at height 0 matches genesis hash")
+            return height_0_hash == bitcoin.NetworkConstants.GENESIS
         try:
             prev_hash = self.get_hash(height - 1)
         except:
             return False
         if prev_hash != header.get('prev_block_hash'):
+            tes_print_error("Unexpected hash for height {} from header. Expected: {}, got: {}"
+                            .format(height - 1, prev_hash, header.get('prev_block_hash')))
             return False
         target = self.get_target(height // 2016 - 1)
         try:
