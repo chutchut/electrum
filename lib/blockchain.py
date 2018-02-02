@@ -29,7 +29,7 @@ from .bitcoin import *
 
 from lib.tes.util import tes_print_msg, tes_print_error
 
-MAX_TARGET = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+MAX_TARGET = 0x00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 
 def serialize_header(res):
@@ -341,10 +341,13 @@ class Blockchain(util.PrintError):
             tes_print_error("Unexpected hash for height {} from header. Expected: {}, got: {}"
                             .format(height - 1, prev_hash, header.get('prev_block_hash')))
             return False
+        tes_print_msg("Confirmed hash for prev height {}: {}".format(height - 1, prev_hash))
         target = self.get_target(height // 2016 - 1)
+        tes_print_msg("Got target: {}".format(target))
         try:
             self.verify_header(header, prev_hash, target)
         except BaseException as e:
+            tes_print_error("Failed to verify header of prev hash ({}): {}".format(prev_hash, e))
             return False
         return True
 
