@@ -29,7 +29,7 @@ from .bitcoin import *
 
 from lib.tes.util import tes_print_msg, tes_print_error
 
-MAX_TARGET = 0x00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+MAX_TARGET = 0x00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 20 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L37)
 
 
 def serialize_header(res):
@@ -347,7 +347,7 @@ class Blockchain(util.PrintError):
         try:
             self.verify_header(header, prev_hash, target)
         except BaseException as e:
-            tes_print_error("Failed to verify header of prev hash ({}): {}".format(prev_hash, e))
+            tes_print_error("Failed to verify header of block {}: {}".format(height, e))
             return False
         return True
 
