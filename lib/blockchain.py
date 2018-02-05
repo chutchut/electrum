@@ -305,7 +305,7 @@ class Blockchain(util.PrintError):
                 max_target = HARD_MAX_TARGET_STAKE
         # Return MAX_TARGET for genesis, first and second blocks
         if index - 1 in (-1, 0, 1):
-            tes_print_msg("Returning MAX_TARGET for block index: {} ({})".format(index - 1, max_target))
+            tes_print_msg("Returning MAX_TARGET for block index: {} ({})".format(index, max_target))
             return max_target
         if index - 1 < len(self.checkpoints):
             h, t = self.checkpoints[index]
@@ -328,26 +328,15 @@ class Blockchain(util.PrintError):
         interval = math.floor(target_timespan / target_spacing)
 
         # Get the new target for the block
-        new_target = CompactNum(p_block_hdr.get('bits'))
-        new_bits = new_target.get()
-        new_target = new_target * ((interval - 1) * target_spacing + actual_spacing + actual_spacing)
-        new_bits = new_target.get()
-        new_target /= ((interval - 1) * target_spacing)
-        new_bits = new_target.get()
-        if new_target > CompactNum.from_target(max_target):
-            new_target = CompactNum.from_target(max_target)
+        mul_unit = ((interval - 1) * target_spacing + actual_spacing + actual_spacing)
+        div_unit = ((interval + 1) * target_spacing)
+        new_target = CompactNum(p_block_hdr.get('bits'), mul_unit, div_unit)
+        if new_target > max_target:
+            tes_print_msg("New target exceeds MAX_TARGET, returning MAX_TARGET for block index: {} ({})"
+                          .format(index, max_target))
+            new_target = max_target
 
-        '''
-        bits = last.get('bits')
-        target = self.bits_to_target(bits)
-        nActualTimespan = last.get('timestamp') - first.get('timestamp')
-        nTargetTimespan = 14 * 24 * 60 * 60
-        nActualTimespan = max(nActualTimespan, nTargetTimespan // 4)
-        nActualTimespan = min(nActualTimespan, nTargetTimespan * 4)
-        new_target = min(MAX_TARGET, (target * nActualTimespan) // nTargetTimespan)
-        '''
-
-        return new_target.to_target()
+        return int(new_target)
 
     def can_connect(self, header, check_height=True):
         height = header['block_height']
@@ -406,8 +395,6 @@ class Blockchain(util.PrintError):
 
 def bits_to_target(bits):
     bitsN = (bits >> 24) & 0xff
-    #if not (bitsN >= 0x03 and bitsN <= 0x1d):
-    #    raise BaseException("First part of bits should be in [0x03, 0x1d]")
     bitsBase = bits & 0xffffff
     if not (bitsBase >= 0x8000 and bitsBase <= 0x7fffff):
         raise BaseException("Second part of bits should be in [0x8000, 0x7fffff]")
@@ -427,42 +414,34 @@ def target_to_bits(target):
 
 class CompactNum:
 
-    def __init__(self, x):
-        self.bits = x
+    def __init__(self, bits, mul, div):
+        self.bits = bits
+        self.mul = mul
+        self.div = div
+
+    def __int__(self):
+        return int(self.to_target())
 
     def __gt__(self, other):
-        return self.get() > other.get()
+        if isinstance(other, CompactNum):
+            return self.to_target() > other.to_target()
+        else:
+            return self.to_target() > other
 
     def __lt__(self, other):
-        return self.get() < other.get()
+        if isinstance(other, CompactNum):
+            return self.to_target() < other.to_target()
+        else:
+            return self.to_target() < other
 
     def __eq__(self, other):
-        return self.get() == other.get()
-
-    def __mul__(self, other):
-        return CompactNum.from_target(self.to_target() * other)
-
-    def __imul__(self, other):
-        val = self.to_target()
-        val *= other
-        return CompactNum.from_target(val)
-
-    def __idiv__(self, other):
-        val = self.to_target()
-        val /= other
-        return CompactNum.from_target(val)
-
-    def __itruediv__(self, other):
-        val = self.to_target()
-        val /= other
-        return CompactNum.from_target(val)
+        if isinstance(other, CompactNum):
+            return self.to_target() == other.to_target()
+        else:
+            return self.to_target() == other
 
     def to_target(self):
-        return bits_to_target(self.get())
-
-    @staticmethod
-    def from_target(target):
-        return CompactNum(target_to_bits(target))
-
-    def get(self):
-        return self.bits
+        if self.div > 0:
+            return (bits_to_target(self.bits) * self.mul) / self.div
+        else:
+            return bits_to_target(self.bits) * self.mul
