@@ -21,6 +21,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import os
+import math
 import threading
 
 from . import util
@@ -30,6 +31,8 @@ from .bitcoin import *
 from lib.tes.util import tes_print_msg, tes_print_error
 
 MAX_TARGET = 0x00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 20 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L37)
+MAX_TARGET_STAKE = 0x000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 24 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L38)
+HARD_MAX_TARGET_STAKE = 0x00000003ffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 30 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L39)
 
 
 def serialize_header(res):
@@ -162,7 +165,7 @@ class Blockchain(util.PrintError):
             raise BaseException("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
         if bitcoin.NetworkConstants.TESTNET:
             return
-        bits = self.target_to_bits(target)
+        bits = target_to_bits(target)
         if bits != header.get('bits'):
             raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
         if int('0x' + _hash, 16) > target:
@@ -170,11 +173,11 @@ class Blockchain(util.PrintError):
 
     def verify_chunk(self, index, data):
         num = len(data) // 80
-        prev_hash = self.get_hash(index * 2016 - 1)
-        target = self.get_target(index-1)
+        prev_hash = self.get_hash(index - 1)
+        target = self.get_target(index)
         for i in range(num):
             raw_header = data[i*80:(i+1) * 80]
-            header = deserialize_header(raw_header, index*2016 + i)
+            header = deserialize_header(raw_header, index + i)
             self.verify_header(header, prev_hash, target)
             prev_hash = hash_header(header)
 
@@ -185,7 +188,7 @@ class Blockchain(util.PrintError):
 
     def save_chunk(self, index, chunk):
         filename = self.path()
-        d = (index * 2016 - self.checkpoint) * 80
+        d = (index - self.checkpoint) * 80
         if d < 0:
             chunk = chunk[-d:]
             d = 0
@@ -270,26 +273,71 @@ class Blockchain(util.PrintError):
             return '0000000000000000000000000000000000000000000000000000000000000000'
         elif height == 0:
             return bitcoin.NetworkConstants.GENESIS
-        elif height < len(self.checkpoints) * 2016:
-            assert (height+1) % 2016 == 0, height
-            index = height // 2016
+        elif height < len(self.checkpoints):
+            index = height
             h, t = self.checkpoints[index]
             return h
         else:
             return hash_header(self.read_header(height))
 
+    def is_proof_of_stake(self, index):
+        return False
+
+    def is_proof_of_work(self, index):
+        return not self.is_proof_of_stake(index)
+
+    def get_last_block_index(self, index):
+        pindex = index
+        while pindex and (pindex - 1) and (self.is_proof_of_stake(pindex) != self.is_proof_of_stake(index)):
+            pindex -= 1
+        return pindex
+
     def get_target(self, index):
-        # compute target from chunk x, used in chunk x+1
+        # GetNextTargetRequired() - https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L848
         if bitcoin.NetworkConstants.TESTNET:
             return 0
-        if index == -1:
-            return MAX_TARGET
-        if index < len(self.checkpoints):
+        # Define max target based on block type
+        max_target = MAX_TARGET
+        if self.is_proof_of_stake(index):
+            if index + 1 > 15000:
+                max_target = MAX_TARGET_STAKE
+            elif index + 1 > 14060:
+                max_target = HARD_MAX_TARGET_STAKE
+        # Return MAX_TARGET for genesis, first and second blocks
+        if index - 1 in (-1, 0, 1):
+            tes_print_msg("Returning MAX_TARGET for block index: {} ({})".format(index - 1, max_target))
+            return max_target
+        if index - 1 < len(self.checkpoints):
             h, t = self.checkpoints[index]
+            tes_print_msg("Getting target from checkpoints, index: {} ({})".format(index, t))
             return t
-        # new target
-        first = self.read_header(index * 2016)
-        last = self.read_header(index * 2016 + 2015)
+
+        # Stake/target vars
+        target_timespan = math.floor(0.16 * 24 * 60 * 60)
+        stake_target_spacing = 30
+        target_spacing_work_max = 12 * stake_target_spacing
+
+        # Define spacing and interval
+        p_block_hdr = self.read_header(index - 1)
+        pp_block_hdr = self.read_header(index - 2)
+        actual_spacing = p_block_hdr.get('timestamp') - pp_block_hdr.get('timestamp')
+        if self.is_proof_of_stake(index):
+            target_spacing = stake_target_spacing
+        else:
+            target_spacing = min(target_spacing_work_max, stake_target_spacing * (index - (index - 1)))
+        interval = math.floor(target_timespan / target_spacing)
+
+        # Get the new target for the block
+        new_target = CompactNum(p_block_hdr.get('bits'))
+        new_bits = new_target.get()
+        new_target = new_target * ((interval - 1) * target_spacing + actual_spacing + actual_spacing)
+        new_bits = new_target.get()
+        new_target /= ((interval - 1) * target_spacing)
+        new_bits = new_target.get()
+        if new_target > CompactNum.from_target(max_target):
+            new_target = CompactNum.from_target(max_target)
+
+        '''
         bits = last.get('bits')
         target = self.bits_to_target(bits)
         nActualTimespan = last.get('timestamp') - first.get('timestamp')
@@ -297,26 +345,9 @@ class Blockchain(util.PrintError):
         nActualTimespan = max(nActualTimespan, nTargetTimespan // 4)
         nActualTimespan = min(nActualTimespan, nTargetTimespan * 4)
         new_target = min(MAX_TARGET, (target * nActualTimespan) // nTargetTimespan)
-        return new_target
+        '''
 
-    def bits_to_target(self, bits):
-        bitsN = (bits >> 24) & 0xff
-        if not (bitsN >= 0x03 and bitsN <= 0x1d):
-            raise BaseException("First part of bits should be in [0x03, 0x1d]")
-        bitsBase = bits & 0xffffff
-        if not (bitsBase >= 0x8000 and bitsBase <= 0x7fffff):
-            raise BaseException("Second part of bits should be in [0x8000, 0x7fffff]")
-        return bitsBase << (8 * (bitsN-3))
-
-    def target_to_bits(self, target):
-        c = ("%064x" % target)[2:]
-        while c[:2] == '00' and len(c) > 6:
-            c = c[2:]
-        bitsN, bitsBase = len(c) // 2, int('0x' + c[:6], 16)
-        if bitsBase >= 0x800000:
-            bitsN += 1
-            bitsBase >>= 8
-        return bitsN << 24 | bitsBase
+        return new_target.to_target()
 
     def can_connect(self, header, check_height=True):
         height = header['block_height']
@@ -342,8 +373,8 @@ class Blockchain(util.PrintError):
                             .format(height - 1, prev_hash, header.get('prev_block_hash')))
             return False
         tes_print_msg("Confirmed hash for prev height {}: {}".format(height - 1, prev_hash))
-        target = self.get_target(height // 2016 - 1)
-        tes_print_msg("Got target: {}".format(target))
+        target = self.get_target(height)
+        tes_print_msg("Got target: {} ({})".format(target, target_to_bits(target)))
         try:
             self.verify_header(header, prev_hash, target)
         except BaseException as e:
@@ -365,9 +396,73 @@ class Blockchain(util.PrintError):
     def get_checkpoints(self):
         # for each chunk, store the hash of the last block and the target after the chunk
         cp = []
-        n = self.height() // 2016
+        n = self.height()
         for index in range(n):
-            h = self.get_hash((index+1) * 2016 -1)
+            h = self.get_hash(index)
             target = self.get_target(index)
             cp.append((h, target))
         return cp
+
+
+def bits_to_target(bits):
+    bitsN = (bits >> 24) & 0xff
+    #if not (bitsN >= 0x03 and bitsN <= 0x1d):
+    #    raise BaseException("First part of bits should be in [0x03, 0x1d]")
+    bitsBase = bits & 0xffffff
+    if not (bitsBase >= 0x8000 and bitsBase <= 0x7fffff):
+        raise BaseException("Second part of bits should be in [0x8000, 0x7fffff]")
+    return bitsBase << (8 * (bitsN-3))
+
+
+def target_to_bits(target):
+    c = ("%064x" % int(target))[2:]
+    while c[:2] == '00' and len(c) > 6:
+        c = c[2:]
+    bitsN, bitsBase = len(c) // 2, int('0x' + c[:6], 16)
+    if bitsBase >= 0x800000:
+        bitsN += 1
+        bitsBase >>= 8
+    return bitsN << 24 | bitsBase
+
+
+class CompactNum:
+
+    def __init__(self, x):
+        self.bits = x
+
+    def __gt__(self, other):
+        return self.get() > other.get()
+
+    def __lt__(self, other):
+        return self.get() < other.get()
+
+    def __eq__(self, other):
+        return self.get() == other.get()
+
+    def __mul__(self, other):
+        return CompactNum.from_target(self.to_target() * other)
+
+    def __imul__(self, other):
+        val = self.to_target()
+        val *= other
+        return CompactNum.from_target(val)
+
+    def __idiv__(self, other):
+        val = self.to_target()
+        val /= other
+        return CompactNum.from_target(val)
+
+    def __itruediv__(self, other):
+        val = self.to_target()
+        val /= other
+        return CompactNum.from_target(val)
+
+    def to_target(self):
+        return bits_to_target(self.get())
+
+    @staticmethod
+    def from_target(target):
+        return CompactNum(target_to_bits(target))
+
+    def get(self):
+        return self.bits
