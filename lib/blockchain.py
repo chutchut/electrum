@@ -99,6 +99,9 @@ def check_header(header):
 
 def can_connect(header):
     for b in blockchains.values():
+        if getattr(b, 'set_current_header') and callable(getattr(b, 'set_current_header')):
+            # Set the current header
+            b.set_current_header(header)
         if b.can_connect(header):
             return b
     return False
@@ -116,6 +119,7 @@ class Blockchain(util.PrintError):
         self.checkpoints = bitcoin.NetworkConstants.CHECKPOINTS
         self.parent_id = parent_id
         self.lock = threading.Lock()
+        self._current_header = None  # Store the header currently being processed in memory
         with self.lock:
             self.update_size()
 
@@ -135,6 +139,18 @@ class Blockchain(util.PrintError):
 
     def get_name(self):
         return self.get_hash(self.get_checkpoint()).lstrip('00')[0:10]
+
+    def get_current_header(self, height=None):
+        if not height:
+            return self._current_header
+        else:
+            if self._current_header and self._current_header.get('block_height') == height:
+                return self._current_header
+        return None
+
+    def set_current_header(self, header):
+        tes_print_msg("Setting current header: {}".format(header))
+        self._current_header = header
 
     def check_header(self, header):
         header_hash = hash_header(header)
@@ -172,14 +188,16 @@ class Blockchain(util.PrintError):
             raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
 
     def verify_chunk(self, index, data):
-        num = len(data) // 80
+        # No need to iterate, block to chunk ratio 1:1
         prev_hash = self.get_hash(index - 1)
-        target = self.get_target(index)
-        for i in range(num):
-            raw_header = data[i*80:(i+1) * 80]
-            header = deserialize_header(raw_header, index + i)
-            self.verify_header(header, prev_hash, target)
-            prev_hash = hash_header(header)
+        raw_header = data[1 * 80:(1 + 1) * 80]
+        header = deserialize_header(raw_header, index + 1)
+        # Set the current header
+        self.set_current_header(header)
+        # Check for pos block
+        is_pos = self.is_proof_of_stake_header(header)
+        target = self.get_target(index, is_pos)
+        self.verify_header(header, prev_hash, target)
 
     def path(self):
         d = util.get_headers_dir(self.config)
@@ -280,25 +298,40 @@ class Blockchain(util.PrintError):
         else:
             return hash_header(self.read_header(height))
 
+    def is_proof_of_stake_header(self, header):
+        # Assume false if header is null
+        if not header:
+            return False
+        nonce = header.get('nonce')
+        # Determine pos block by checking for nonce == 0
+        if nonce is not None and nonce == 0:
+            return True
+        else:
+            return False
+
     def is_proof_of_stake(self, index):
-        return False
+        hdr = self.read_header(index)
+        # If we cant read the header at index try getting the current header
+        if not hdr and self.get_current_header(height=index):
+            hdr = self.get_current_header()
+        return self.is_proof_of_stake_header(hdr)
 
     def is_proof_of_work(self, index):
         return not self.is_proof_of_stake(index)
 
-    def get_last_block_index(self, index):
+    def get_last_block_index(self, index, is_pos):
         pindex = index
-        while pindex and (pindex - 1) and (self.is_proof_of_stake(pindex) != self.is_proof_of_stake(index)):
+        while pindex > 0 and (pindex - 1) > 0 and (self.is_proof_of_stake(pindex) != is_pos):
             pindex -= 1
         return pindex
 
-    def get_target(self, index):
+    def get_target(self, index, is_pos):
         # GetNextTargetRequired() - https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L848
         if bitcoin.NetworkConstants.TESTNET:
             return 0
         # Define max target based on block type
         max_target = MAX_TARGET
-        if self.is_proof_of_stake(index):
+        if is_pos:
             if index + 1 > 15000:
                 max_target = MAX_TARGET_STAKE
             elif index + 1 > 14060:
@@ -317,14 +350,24 @@ class Blockchain(util.PrintError):
         stake_target_spacing = 30
         target_spacing_work_max = 12 * stake_target_spacing
 
+        # Get block prev/prevprev indexes
+        p_block_idx = self.get_last_block_index(index, is_pos)
+        pp_block_idx = self.get_last_block_index(p_block_idx - 1, is_pos)
+
+        # Get the block headers determined by indexes
+        # If index is the current height it will not be possible to read so use get_current_header
+        if p_block_idx == index:
+            p_block_hdr = self.get_current_header(height=index)
+        else:
+            p_block_hdr = self.read_header(p_block_idx)
+        pp_block_hdr = self.read_header(pp_block_idx)
+
         # Define spacing and interval
-        p_block_hdr = self.read_header(index - 1)
-        pp_block_hdr = self.read_header(index - 2)
         actual_spacing = p_block_hdr.get('timestamp') - pp_block_hdr.get('timestamp')
-        if self.is_proof_of_stake(index):
+        if is_pos:
             target_spacing = stake_target_spacing
         else:
-            target_spacing = min(target_spacing_work_max, stake_target_spacing * (index - (index - 1)))
+            target_spacing = min(target_spacing_work_max, stake_target_spacing * (1 + index - p_block_idx))
         interval = math.floor(target_timespan / target_spacing)
 
         # Get the new target for the block
@@ -362,7 +405,11 @@ class Blockchain(util.PrintError):
                             .format(height - 1, prev_hash, header.get('prev_block_hash')))
             return False
         tes_print_msg("Confirmed hash for prev height {}: {}".format(height - 1, prev_hash))
-        target = self.get_target(height)
+        # Check for pos block
+        is_pos = self.is_proof_of_stake_header(header)
+        if is_pos:
+            tes_print_msg("Proof-of-stake block found at height: {}".format(height))
+        target = self.get_target(height, is_pos)
         tes_print_msg("Got target: {} ({})".format(target, target_to_bits(target)))
         try:
             self.verify_header(header, prev_hash, target)
@@ -388,7 +435,9 @@ class Blockchain(util.PrintError):
         n = self.height()
         for index in range(n):
             h = self.get_hash(index)
-            target = self.get_target(index)
+            # Check for pos block
+            is_pos = self.is_proof_of_stake(index)
+            target = self.get_target(index, is_pos)
             cp.append((h, target))
         return cp
 
