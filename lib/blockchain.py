@@ -192,8 +192,9 @@ class Blockchain(util.PrintError):
                 raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
 
     def verify_chunk(self, index, data):
+        # Normal chunk size is 2016
         num = len(data) // 80
-        prev_hash = self.get_hash(index - 1)
+        index = index * num
         for i in range(num):
             raw_header = data[i * 80:(i + 1) * 80]
             header = deserialize_header(raw_header, index + i)
@@ -202,8 +203,9 @@ class Blockchain(util.PrintError):
             # Check for pos block
             is_pos = self.is_proof_of_stake(index + i)
             target = self.get_target(index + i, is_pos)
+            prev_hash = self.get_hash((index + i) - 1)
             self.verify_header(header, prev_hash, target)
-            prev_hash = hash_header(header)
+            self.save_header(header)
 
     def path(self):
         d = util.get_headers_dir(self.config)
@@ -211,7 +213,9 @@ class Blockchain(util.PrintError):
         return os.path.join(d, filename)
 
     def save_chunk(self, index, chunk):
-        filename = self.path()
+        # Normal chunk size is 2016
+        num = len(chunk) // 80
+        index = index * num
         d = (index - self.checkpoint) * 80
         if d < 0:
             chunk = chunk[-d:]
@@ -267,7 +271,12 @@ class Blockchain(util.PrintError):
             self.update_size()
 
     def save_header(self, header):
-        delta = header.get('block_height') - self.checkpoint
+        height = header.get('block_height')
+        # Dont save header if its already saved
+        if self.read_header(height):
+            return
+        tes_print_msg("Saving block header at height {}: {}".format(height, header))
+        delta = height - self.checkpoint
         data = bfh(serialize_header(header))
         assert delta == self.size()
         assert len(data) == 80
