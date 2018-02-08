@@ -33,6 +33,7 @@ from lib.tes.util import tes_print_msg, tes_print_error
 MAX_TARGET = 0x00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 20 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L37)
 MAX_TARGET_STAKE = 0x000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 24 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L38)
 HARD_MAX_TARGET_STAKE = 0x00000003ffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 30 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L39)
+CUTOFF_POW_BLOCK = 465000
 
 
 def serialize_header(res):
@@ -177,6 +178,7 @@ class Blockchain(util.PrintError):
 
     def verify_header(self, header, prev_hash, target):
         _hash = hash_header(header)
+        tes_print_msg("Got hash {} for header: {}".format(_hash, header))
         if prev_hash != header.get('prev_block_hash'):
             raise BaseException("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
         if bitcoin.NetworkConstants.TESTNET:
@@ -184,20 +186,24 @@ class Blockchain(util.PrintError):
         bits = target_to_bits(target)
         if bits != header.get('bits'):
             raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
-        if int('0x' + _hash, 16) > target:
-            raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
+        # Only check pow for pow blocks
+        if not self.is_proof_of_stake_header(header):
+            if int('0x' + _hash, 16) > target:
+                raise BaseException("insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target))
 
     def verify_chunk(self, index, data):
-        # No need to iterate, block to chunk ratio 1:1
+        num = len(data) // 80
         prev_hash = self.get_hash(index - 1)
-        raw_header = data[1 * 80:(1 + 1) * 80]
-        header = deserialize_header(raw_header, index + 1)
-        # Set the current header
-        self.set_current_header(header)
-        # Check for pos block
-        is_pos = self.is_proof_of_stake_header(header)
-        target = self.get_target(index, is_pos)
-        self.verify_header(header, prev_hash, target)
+        for i in range(num):
+            raw_header = data[i * 80:(i + 1) * 80]
+            header = deserialize_header(raw_header, index + i)
+            # Set the current header
+            self.set_current_header(header)
+            # Check for pos block
+            is_pos = self.is_proof_of_stake(index + i)
+            target = self.get_target(index + i, is_pos)
+            self.verify_header(header, prev_hash, target)
+            prev_hash = hash_header(header)
 
     def path(self):
         d = util.get_headers_dir(self.config)
@@ -303,13 +309,17 @@ class Blockchain(util.PrintError):
         if not header:
             return False
         nonce = header.get('nonce')
-        # Determine pos block by checking for nonce == 0
-        if nonce is not None and nonce == 0:
+        height = header.get('block_height')
+        # Determine pos block by checking for nonce == 0 or height > pow cutoff
+        if (nonce is not None and nonce == 0) or height > CUTOFF_POW_BLOCK:
             return True
         else:
             return False
 
     def is_proof_of_stake(self, index):
+        # If height > the pow cutoff, block is pos
+        if index > CUTOFF_POW_BLOCK:
+            return True
         hdr = self.read_header(index)
         # If we cant read the header at index try getting the current header
         if not hdr and self.get_current_header(height=index):
@@ -351,7 +361,7 @@ class Blockchain(util.PrintError):
         target_spacing_work_max = 12 * stake_target_spacing
 
         # Get block prev/prevprev indexes
-        p_block_idx = self.get_last_block_index(index, is_pos)
+        p_block_idx = self.get_last_block_index(index - 1, is_pos)
         pp_block_idx = self.get_last_block_index(p_block_idx - 1, is_pos)
 
         # Get the block headers determined by indexes
@@ -367,7 +377,7 @@ class Blockchain(util.PrintError):
         if is_pos:
             target_spacing = stake_target_spacing
         else:
-            target_spacing = min(target_spacing_work_max, stake_target_spacing * (1 + index - p_block_idx))
+            target_spacing = min(target_spacing_work_max, stake_target_spacing * (index - p_block_idx))
         interval = math.floor(target_timespan / target_spacing)
 
         # Get the new target for the block
