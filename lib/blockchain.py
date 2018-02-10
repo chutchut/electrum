@@ -194,7 +194,7 @@ class Blockchain(util.PrintError):
     def verify_chunk(self, index, data):
         # Normal chunk size is 2016
         num = len(data) // 80
-        index = index * num
+        index = index * 2016
         for i in range(num):
             raw_header = data[i * 80:(i + 1) * 80]
             header = deserialize_header(raw_header, index + i)
@@ -214,8 +214,7 @@ class Blockchain(util.PrintError):
 
     def save_chunk(self, index, chunk):
         # Normal chunk size is 2016
-        num = len(chunk) // 80
-        index = index * num
+        index = index * 2016
         d = (index - self.checkpoint) * 80
         if d < 0:
             chunk = chunk[-d:]
