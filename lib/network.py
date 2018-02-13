@@ -964,7 +964,12 @@ class Network(util.DaemonThread):
     def init_headers_file(self):
         b = self.blockchains[0]
         filename = b.path()
-        length = 80 * len(bitcoin.NetworkConstants.CHECKPOINTS) * 2016
+        tes_cp = b.get_tes_checkpoint_indexes()
+        if not tes_cp:
+            length = 0
+        else:
+            # Get last defined checkpoint
+            length = 80 * tes_cp[-1]
         if not os.path.exists(filename) or os.path.getsize(filename) < length:
             with open(filename, 'wb') as f:
                 if length>0:
@@ -1097,4 +1102,8 @@ class Network(util.DaemonThread):
             f.write(json.dumps(cp, indent=4))
 
     def max_checkpoint(self):
-        return max(0, len(bitcoin.NetworkConstants.CHECKPOINTS) * 2016 - 1)
+        if bitcoin.NetworkConstants.CHECKPOINTS:
+            tes_cp = self.blockchain().get_tes_checkpoint_indexes()
+            return tes_cp[-1]
+        else:
+            return 0

@@ -286,6 +286,8 @@ class Blockchain(util.PrintError):
         assert self.parent_id != self.checkpoint
         if height < 0:
             return
+        if self.get_current_header(height=height):
+            return self.get_current_header()
         if height < self.checkpoint:
             return self.parent().read_header(height)
         if height > self.height():
@@ -300,14 +302,22 @@ class Blockchain(util.PrintError):
             return None
         return deserialize_header(h, height)
 
+    def get_tes_checkpoint(self, height):
+        for cp in self.checkpoints:
+            if cp[2] == height:
+                return cp[0], cp[1]
+        return None
+
+    def get_tes_checkpoint_indexes(self):
+        return [cp[2] for cp in self.checkpoints]
+
     def get_hash(self, height):
         if height == -1:
             return '0000000000000000000000000000000000000000000000000000000000000000'
         elif height == 0:
             return bitcoin.NetworkConstants.GENESIS
-        elif height < len(self.checkpoints):
-            index = height
-            h, t = self.checkpoints[index]
+        elif self.get_tes_checkpoint(height):
+            h, t = self.get_tes_checkpoint(height)
             return h
         else:
             return hash_header(self.read_header(height))
@@ -329,9 +339,6 @@ class Blockchain(util.PrintError):
         if index > CUTOFF_POW_BLOCK:
             return True
         hdr = self.read_header(index)
-        # If we cant read the header at index try getting the current header
-        if not hdr and self.get_current_header(height=index):
-            hdr = self.get_current_header()
         return self.is_proof_of_stake_header(hdr)
 
     def is_proof_of_work(self, index):
@@ -358,8 +365,8 @@ class Blockchain(util.PrintError):
         if index - 1 in (-1, 0, 1):
             tes_print_msg("Returning MAX_TARGET for block index: {} ({})".format(index, max_target))
             return max_target
-        if index - 1 < len(self.checkpoints):
-            h, t = self.checkpoints[index]
+        if self.get_tes_checkpoint(index):
+            h, t = self.get_tes_checkpoint(index)
             tes_print_msg("Getting target from checkpoints, index: {} ({})".format(index, t))
             return t
 
@@ -373,12 +380,13 @@ class Blockchain(util.PrintError):
         pp_block_idx = self.get_last_block_index(p_block_idx - 1, is_pos)
 
         # Get the block headers determined by indexes
-        # If index is the current height it will not be possible to read so use get_current_header
-        if p_block_idx == index:
-            p_block_hdr = self.get_current_header(height=index)
-        else:
-            p_block_hdr = self.read_header(p_block_idx)
+        p_block_hdr = self.read_header(p_block_idx)
         pp_block_hdr = self.read_header(pp_block_idx)
+
+        # If we cant get either of the required headers above, raise an Exception
+        if not p_block_hdr or not pp_block_hdr:
+            raise BaseException("Failed to acquire required headers for target calculation ({}, {})"
+                                .format(p_block_idx, pp_block_idx))
 
         # Define spacing and interval
         actual_spacing = p_block_hdr.get('timestamp') - pp_block_hdr.get('timestamp')
@@ -427,9 +435,9 @@ class Blockchain(util.PrintError):
         is_pos = self.is_proof_of_stake_header(header)
         if is_pos:
             tes_print_msg("Proof-of-stake block found at height: {}".format(height))
-        target = self.get_target(height, is_pos)
-        tes_print_msg("Got target: {} ({})".format(target, target_to_bits(target)))
         try:
+            target = self.get_target(height, is_pos)
+            tes_print_msg("Got target: {} ({})".format(target, target_to_bits(target)))
             self.verify_header(header, prev_hash, target)
         except BaseException as e:
             tes_print_error("Failed to verify header of block {}: {}".format(height, e))

@@ -6,9 +6,7 @@
 
 TESLACOIN_DEBUG = True
 TESLACOIN_DEBUG_IGNORE = [
-    'verifier.py::run()',
-    'network.py::blockchain()',
-    'blockchain.py'
+    'verifier.py::run()'
 ]
 
 ELECTRUM_BASE_NAME = 'Electrum'
