@@ -300,6 +300,8 @@ class Network(util.DaemonThread):
             interface = self.interface
         message_id = self.message_id
         self.message_id += 1
+        tes_print_msg("Queueing request to server. Method: {}, params: {}, message id: {}"
+                      .format(method, params, message_id))
         if self.debug:
             self.print_error(interface.host, "-->", method, params, message_id)
         interface.queue_request(method, params, message_id)
@@ -768,7 +770,28 @@ class Network(util.DaemonThread):
     def request_chunk(self, interface, index):
         if index in self.requested_chunks:
             return
+        tes_cp = self.blockchain().get_tes_checkpoint_indexes()
+        chunk_block_height = index * 2016
+        if tes_cp and chunk_block_height < tes_cp[-1]:
+            # The requested chunk is earlier than the latest checkpoint
+            return self._request_pre_cp_chunk(interface, index)
         interface.print_error("requesting chunk %d" % index)
+        self.requested_chunks.add(index)
+        self.queue_request('blockchain.block.get_chunk', [index], interface)
+
+    def _request_pre_cp_chunk(self, interface, index):
+        chunk_block_height = index * 2016
+        block_indexes = self.blockchain().get_blocks_for_target(chunk_block_height)
+        if not self.blockchain().read_header(chunk_block_height):
+            self.request_header(interface, chunk_block_height)
+            return
+        elif not self.blockchain().read_header(block_indexes[0]):
+            self.request_header(interface, block_indexes[0])
+            return
+        elif not self.blockchain().read_header(block_indexes[1]):
+            self.request_header(interface, block_indexes[1])
+            return
+        interface.print_error("requesting (pre-checkpoint) chunk %d" % index)
         self.requested_chunks.add(index)
         self.queue_request('blockchain.block.get_chunk', [index], interface)
 
@@ -788,6 +811,10 @@ class Network(util.DaemonThread):
         connect = interface.blockchain.connect_chunk(index, result)
         if not connect:
             self.connection_down(interface.server)
+            return
+        # If this is a pre-checkpoint chunk, just return
+        if self.blockchain().is_pre_checkpoint_header(index * 2016):
+            self.notify('updated')
             return
         # If not finished, get the next chunk
         if interface.blockchain.height() < interface.tip:
@@ -813,10 +840,29 @@ class Network(util.DaemonThread):
             self.connection_down(interface.server)
             return
         height = header.get('block_height')
-        if interface.request != height:
-            interface.print_error("unsolicited header",interface.request, height)
-            self.connection_down(interface.server)
+        # If pre checkpoint (-1) header, probably getting chunks on demand for older txs
+        # Save the header in memory and return
+        max_cp = self.max_checkpoint()
+        if max_cp and height < max_cp - 1:
+            if not self.blockchain().read_header(height):
+                self.blockchain().set_current_header(header)
+                self.notify('updated')
             return
+        # If this is cp start - 1, save header
+        if max_cp and height + 1 == max_cp:
+            self.blockchain().set_current_header(header)
+            # Get the cp starting header and reset the mode to backward
+            header = self.blockchain().get_current_header(height=height + 1)
+            if not header:
+                tes_print_error("Couldnt get saved header at height: {}".format(height + 1))
+                return
+            height = header.get('block_height')
+            interface.mode = 'backward'
+        else:
+            if interface.request != height:
+                interface.print_error("unsolicited header",interface.request, height)
+                self.connection_down(interface.server)
+                return
         chain = blockchain.check_header(header)
         tes_print_msg("Got chain from header: {}, mode: {}".format(chain, interface.mode))
         if interface.mode == 'backward':
@@ -832,6 +878,13 @@ class Network(util.DaemonThread):
                 interface.mode = 'binary'
                 interface.blockchain = chain
                 interface.good = height
+                # If this is the start of catch up, request header - 1
+                if self.blockchain().is_tes_checkpoint_start(height) and \
+                        not self.blockchain().read_header(height=height - 1):
+                    # Save the original header
+                    self.blockchain().save_header(header)
+                    self.request_header(interface, height - 1)
+                    return
                 next_height = (interface.bad + interface.good) // 2
                 assert next_height >= self.max_checkpoint(), (interface.bad, interface.good)
             else:
@@ -921,7 +974,13 @@ class Network(util.DaemonThread):
             raise BaseException(interface.mode)
         # If not finished, get the next header
         if next_height:
-            if interface.mode == 'catch_up' and interface.tip > next_height + 50:
+            max_cp = self.max_checkpoint()
+            next_chunk = next_height // 2016
+            if max_cp and next_chunk * 2016 < max_cp:
+                get_chunk = False
+            else:
+                get_chunk = True
+            if interface.mode == 'catch_up' and interface.tip > next_height + 50 and get_chunk:
                 self.request_chunk(interface, next_height // 2016)
             else:
                 self.request_header(interface, next_height)
@@ -935,7 +994,11 @@ class Network(util.DaemonThread):
     def maintain_requests(self):
         for interface in list(self.interfaces.values()):
             if interface.request and time.time() - interface.request_time > 20:
+                if isinstance(interface.request, int) and self.blockchain().read_header(interface.request):
+                    # If the header was saved, dont close the connection
+                    continue
                 interface.print_error("blockchain request timed out")
+                tes_print_error("Request to server timed out ({})".format(interface.request))
                 self.connection_down(interface.server)
                 continue
 
@@ -1036,9 +1099,6 @@ class Network(util.DaemonThread):
         if self.interface and self.interface.blockchain is not None:
             self.blockchain_index = self.interface.blockchain.checkpoint
             tes_print_msg("Got interface ({}) and blockchain: {}".format(self.interface, self.interface.blockchain))
-            tes_print_msg("Interface blockchain checkpoint: {}, local height: {}"
-                          .format(self.interface.blockchain.checkpoint,
-                                  self.blockchains[self.blockchain_index].height()))
         else:
             stored_height = self.blockchains[self.blockchain_index].height()
             tes_print_error("Interface blockchain is null. Stored height: {}, hash: {}"

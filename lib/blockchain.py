@@ -120,7 +120,7 @@ class Blockchain(util.PrintError):
         self.checkpoints = bitcoin.NetworkConstants.CHECKPOINTS
         self.parent_id = parent_id
         self.lock = threading.Lock()
-        self._current_header = None  # Store the header currently being processed in memory
+        self._transient_headers = {}
         with self.lock:
             self.update_size()
 
@@ -143,15 +143,20 @@ class Blockchain(util.PrintError):
 
     def get_current_header(self, height=None):
         if not height:
-            return self._current_header
+            # Get the highest height in _transient_headers
+            th_heights = list(self._transient_headers.keys())
+            if th_heights:
+                th_heights.sort()
+                return self._transient_headers[th_heights[-1]]
         else:
-            if self._current_header and self._current_header.get('block_height') == height:
-                return self._current_header
+            if self._transient_headers and height in self._transient_headers:
+                return self._transient_headers[height]
         return None
 
     def set_current_header(self, header):
         tes_print_msg("Setting current header: {}".format(header))
-        self._current_header = header
+        height = header.get('block_height')
+        self._transient_headers[height] = header
 
     def check_header(self, header):
         header_hash = hash_header(header)
@@ -219,7 +224,7 @@ class Blockchain(util.PrintError):
         if d < 0:
             chunk = chunk[-d:]
             d = 0
-        self.write(chunk, d, index > len(self.checkpoints))
+        self.write(chunk, d)
         self.swap_with_parent()
 
     def swap_with_parent(self):
@@ -258,6 +263,13 @@ class Blockchain(util.PrintError):
 
     def write(self, data, offset, truncate=True):
         filename = self.path()
+        update_size = True
+        # Block index is offset / 80
+        b_index = offset // 80
+        # Do not truncate or update the size of the blockchain for pre-checkpoint data
+        if self.is_pre_checkpoint_header(b_index):
+            truncate = False
+            update_size = False
         with self.lock:
             with open(filename, 'rb+') as f:
                 if truncate and offset != self._size*80:
@@ -267,27 +279,31 @@ class Blockchain(util.PrintError):
                 f.write(data)
                 f.flush()
                 os.fsync(f.fileno())
-            self.update_size()
+            if update_size:
+                self.update_size()
 
-    def save_header(self, header):
+    def save_header(self, header, force=False):
         height = header.get('block_height')
-        # Dont save header if its already saved
-        if self.read_header(height):
+        # Dont save header if its already saved in non-transient storage
+        if not force and self.read_header(height, in_mem=False):
             return
         tes_print_msg("Saving block header at height {}: {}".format(height, header))
         delta = height - self.checkpoint
         data = bfh(serialize_header(header))
-        assert delta == self.size()
+        # Allow out-of-order save for pre-checkpoint headers
+        check_size = not self.is_pre_checkpoint_header(height)
+        if check_size:
+            assert delta == self.size()
         assert len(data) == 80
         self.write(data, delta*80)
         self.swap_with_parent()
 
-    def read_header(self, height):
+    def read_header(self, height, in_mem=True):
         assert self.parent_id != self.checkpoint
         if height < 0:
             return
-        if self.get_current_header(height=height):
-            return self.get_current_header()
+        if in_mem and self.get_current_header(height=height):
+            return self.get_current_header(height=height)
         if height < self.checkpoint:
             return self.parent().read_header(height)
         if height > self.height():
@@ -310,6 +326,19 @@ class Blockchain(util.PrintError):
 
     def get_tes_checkpoint_indexes(self):
         return [cp[2] for cp in self.checkpoints]
+
+    def is_pre_checkpoint_header(self, index):
+        tes_cp = self.get_tes_checkpoint_indexes()
+        if tes_cp and index < tes_cp[-1]:
+            return True
+        else:
+            return False
+
+    def is_tes_checkpoint_start(self, height):
+        if self.get_tes_checkpoint_indexes() and self.get_tes_checkpoint_indexes()[-1] == height:
+            return True
+        else:
+            return False
 
     def get_hash(self, height):
         if height == -1:
@@ -349,6 +378,13 @@ class Blockchain(util.PrintError):
         while pindex > 0 and (pindex - 1) > 0 and (self.is_proof_of_stake(pindex) != is_pos):
             pindex -= 1
         return pindex
+
+    def get_blocks_for_target(self, index):
+        is_pos = self.is_proof_of_stake(index)
+        # Get block prev/prevprev indexes
+        p_block_idx = self.get_last_block_index(index - 1, is_pos)
+        pp_block_idx = self.get_last_block_index(p_block_idx - 1, is_pos)
+        return p_block_idx, pp_block_idx
 
     def get_target(self, index, is_pos):
         # GetNextTargetRequired() - https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L848
