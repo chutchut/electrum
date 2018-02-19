@@ -133,7 +133,10 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         self.create_status_bar()
         self.need_update = threading.Event()
 
-        self.decimal_point = config.get('decimal_point', 5)
+        self.decimal_point = config.get('decimal_point', 6)
+        # Set default base unit if unexpected
+        if self.decimal_point not in [0, 3, 6]:
+            self.decimal_point = 6
         self.fee_unit = config.get('fee_unit', 0)
         self.num_zeros     = int(config.get('num_zeros',0))
 
@@ -652,9 +655,6 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         return self.decimal_point
 
     def base_unit(self):
-        # Set default base unit if unexpected
-        if self.decimal_point not in [0, 3, 6]:
-            self.decimal_point = 6
         if self.decimal_point == 0:
             return 'u{}'.format(TESLACOIN_CODE)
         if self.decimal_point == 3:
