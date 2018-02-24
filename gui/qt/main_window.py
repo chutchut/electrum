@@ -1491,6 +1491,18 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             tx = self.wallet.make_unsigned_transaction(
                 coins, outputs, self.config, fixed_fee=fee_estimator,
                 is_sweep=is_sweep)
+
+            # Check tx serialised data matches
+            tx_raw = str(tx)
+            new_tx_raw = str(Transaction(tx.serialize()))
+            assert tx_raw == new_tx_raw
+            # Check tx deserialised data matches
+            tx_de = tx.deserialize()
+            new_tx_de = Transaction(tx.serialize()).deserialize()
+            assert tx_de == new_tx_de
+        except AssertionError:
+            self.show_message(_("Invalid transaction"))
+            return
         except NotEnoughFunds:
             self.show_message(_("Insufficient funds"))
             return

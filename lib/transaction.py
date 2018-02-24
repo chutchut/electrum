@@ -32,6 +32,7 @@ from .util import print_error, profiler
 from . import bitcoin
 from .bitcoin import *
 import struct
+import time
 
 #
 # Workalike python implementation of Bitcoin's CDataStream class.
@@ -706,6 +707,7 @@ class Transaction:
             raise BaseException("cannot initialize transaction", raw)
         self._inputs = None
         self._outputs = None
+        self.time = None
         self.locktime = 0
         self.version = 1
 
@@ -723,6 +725,11 @@ class Transaction:
         if self._outputs is None:
             self.deserialize()
         return self._outputs
+
+    def gettime(self):
+        if not self.time:
+            self.time = int(time.time())
+        return self.time
 
     @classmethod
     def get_sorted_pubkeys(self, txin):
@@ -768,21 +775,27 @@ class Transaction:
     def deserialize(self):
         if self.raw is None:
             return
-            #self.raw = self.serialize()
-        if self._inputs is not None:
-            return
         d = deserialize(self.raw)
-        self._inputs = d['inputs']
-        self._outputs = [(x['type'], x['address'], x['value']) for x in d['outputs']]
-        self.locktime = d['lockTime']
-        self.version = d['version']
+        if not self._inputs:
+            self._inputs = d['inputs']
+        if not self._outputs:
+            self._outputs = [(x['type'], x['address'], x['value']) for x in d['outputs']]
+        if not self.time:
+            self.time = d['time']
+        if not self.locktime:
+            self.locktime = d['lockTime']
+        if not self.version:
+            self.version = d['version']
         return d
 
     @classmethod
-    def from_io(klass, inputs, outputs, locktime=0):
+    def from_io(klass, inputs, outputs, testime=None, locktime=0):
+        if not testime:
+            testime = int(time.time())
         self = klass(None)
         self._inputs = inputs
         self._outputs = outputs
+        self.time = testime
         self.locktime = locktime
         return self
 
@@ -969,6 +982,7 @@ class Transaction:
     def serialize_preimage(self, i):
         nVersion = int_to_hex(self.version, 4)
         nHashType = int_to_hex(1, 4)
+        nTime = int_to_hex(self.gettime(), 4)
         nLocktime = int_to_hex(self.locktime, 4)
         inputs = self.inputs()
         outputs = self.outputs()
@@ -987,7 +1001,7 @@ class Transaction:
         else:
             txins = var_int(len(inputs)) + ''.join(self.serialize_input(txin, self.get_preimage_script(txin) if i==k else '') for k, txin in enumerate(inputs))
             txouts = var_int(len(outputs)) + ''.join(self.serialize_output(o) for o in outputs)
-            preimage = nVersion + txins + txouts + nLocktime + nHashType
+            preimage = nVersion + nTime + txins + txouts + nLocktime + nHashType
         return preimage
 
     def is_segwit(self):
@@ -995,6 +1009,7 @@ class Transaction:
 
     def serialize(self, estimate_size=False, witness=True):
         nVersion = int_to_hex(self.version, 4)
+        nTime = int_to_hex(self.gettime(), 4)
         nLocktime = int_to_hex(self.locktime, 4)
         inputs = self.inputs()
         outputs = self.outputs()
@@ -1006,7 +1021,7 @@ class Transaction:
             witness = ''.join(self.serialize_witness(x, estimate_size) for x in inputs)
             return nVersion + marker + flag + txins + txouts + witness + nLocktime
         else:
-            return nVersion + txins + txouts + nLocktime
+            return nVersion + nTime + txins + txouts + nLocktime
 
     def hash(self):
         print("warning: deprecated tx.hash()")
