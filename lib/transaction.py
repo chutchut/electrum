@@ -39,7 +39,7 @@ import time
 #
 from .keystore import xpubkey_to_address, xpubkey_to_pubkey
 
-from lib.tes.util import tes_print_msg
+from lib.tes.util import tes_print_msg, tes_print_error
 
 NO_SIGNATURE = 'ff'
 
@@ -401,13 +401,13 @@ def decode_script(bytes):
 
 def match_decoded(decoded, to_match):
     if len(decoded) != len(to_match):
-        tes_print_msg("List length mismatch (expected {}, got {})".format(len(decoded), len(to_match)))
+        tes_print_error("List length mismatch (expected {}, got {})".format(len(decoded), len(to_match)))
         return False
     for i in range(len(decoded)):
         if to_match[i] == opcodes.OP_PUSHDATA4 and decoded[i][0] <= opcodes.OP_PUSHDATA4 and decoded[i][0]>0:
             continue  # Opcodes below OP_PUSHDATA4 all just push data onto stack, and are equivalent.
         if to_match[i] != decoded[i][0]:
-            tes_print_msg("Unexpected opcode (expected {}, got {})".format(to_match[i], decoded[i][0]))
+            tes_print_error("Unexpected opcode (expected {}, got {})".format(to_match[i], decoded[i][0]))
             return False
     tes_print_msg("Opcodes match")
     return True

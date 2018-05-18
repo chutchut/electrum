@@ -534,6 +534,12 @@ class Abstract_Wallet(PrintError):
             if tx_hash in self.transactions.keys():
                 label = self.get_label(tx_hash)
                 height, conf, timestamp = self.get_tx_height(tx_hash)
+                if fee is None:
+                    fee = self.tx_fees.get(tx_hash)
+                if fee and self.network.config.has_fee_estimates():
+                    size = tx.estimated_size()
+                    fee_per_kb = fee * 1000 / size
+                    exp_n = self.network.config.reverse_dynfee(fee_per_kb)
                 if height > 0:
                     if conf:
                         status = _("%d confirmations") % conf
@@ -541,12 +547,6 @@ class Abstract_Wallet(PrintError):
                         status = _('Not verified')
                 elif height in (TX_HEIGHT_UNCONF_PARENT, TX_HEIGHT_UNCONFIRMED):
                     status = _('Unconfirmed')
-                    if fee is None:
-                        fee = self.tx_fees.get(tx_hash)
-                    if fee and self.network.config.has_fee_estimates():
-                        size = tx.estimated_size()
-                        fee_per_kb = fee * 1000 / size
-                        exp_n = self.network.config.reverse_dynfee(fee_per_kb)
                     can_bump = is_mine and not tx.is_final()
                 else:
                     status = _('Local')
