@@ -41,7 +41,7 @@ from .interface import Connection, Interface
 from . import blockchain
 from .version import ELECTRUM_VERSION, PROTOCOL_VERSION
 
-from lib.tes.util import tes_print_msg, tes_print_error
+from electrum.tes.util import tes_print_msg, tes_print_error
 
 
 NODES_RETRY_INTERVAL = 60

@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QLineEdit, QStyle, QStyleOptionFrame)
 from decimal import Decimal
 from electrum.util import format_satoshis_plain
 
-from lib.tes.conf import TESLACOIN_CODE
+from electrum.tes.conf import TESLACOIN_CODE
 
 
 class MyLineEdit(QLineEdit):

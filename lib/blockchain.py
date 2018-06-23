@@ -28,7 +28,7 @@ from . import util
 from . import bitcoin
 from .bitcoin import *
 
-from lib.tes.util import tes_print_msg, tes_print_error
+from electrum.tes.util import tes_print_msg, tes_print_error
 
 MAX_TARGET = 0x00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 20 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L37)
 MAX_TARGET_STAKE = 0x000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # ~uint256(0) >> 24 (https://github.com/TeslacoinFoundation/Teslacoin-v.3.4/blob/master/src/main.cpp#L38)

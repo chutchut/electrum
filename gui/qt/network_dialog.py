@@ -37,7 +37,7 @@ from electrum.network import serialize_server, deserialize_server
 
 from .util import *
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 protocol_names = ['TCP', 'SSL']
 protocol_letters = 'ts'

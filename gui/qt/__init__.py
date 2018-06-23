@@ -48,7 +48,7 @@ from electrum.util import UserCancelled, print_error
 
 from .installwizard import InstallWizard, GoBack
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 
 try:

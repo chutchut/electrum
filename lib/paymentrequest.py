@@ -46,7 +46,7 @@ from . import rsakey
 
 from .bitcoin import TYPE_ADDRESS
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 REQUEST_HEADERS = {'Accept': 'application/bitcoin-paymentrequest', 'User-Agent': get_display_name()}
 ACK_HEADERS = {'Content-Type': 'application/bitcoin-payment', 'Accept': 'application/bitcoin-paymentack',

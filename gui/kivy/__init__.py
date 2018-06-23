@@ -28,7 +28,7 @@
 import sys
 import os
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 try:
     sys.argv = ['']

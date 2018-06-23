@@ -63,7 +63,7 @@ from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .paymentrequest import InvoiceStore
 from .contacts import Contacts
 
-from lib.tes.util import tes_print_msg, tes_print_error
+from electrum.tes.util import tes_print_msg, tes_print_error
 
 TX_STATUS = [
     _('Replaceable'),

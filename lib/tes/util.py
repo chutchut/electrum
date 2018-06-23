@@ -7,7 +7,7 @@
 import os
 import inspect
 
-from lib.tes.conf import *
+from electrum.tes.conf import *
 
 
 def get_display_name():

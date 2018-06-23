@@ -31,7 +31,7 @@ from electrum.i18n import _
 from .util import *
 from .qrtextedit import ShowQRTextEdit, ScanQRTextEdit
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 
 def seed_warning_msg(seed):

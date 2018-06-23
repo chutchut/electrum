@@ -23,7 +23,7 @@
 from .util import ThreadJob
 from .bitcoin import *
 
-from lib.tes.util import tes_print_msg
+from electrum.tes.util import tes_print_msg
 
 
 class SPV(ThreadJob):

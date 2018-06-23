@@ -10,8 +10,8 @@ from .util import (user_dir, print_error, PrintError,
 
 from .bitcoin import MAX_FEE_RATE, FEE_TARGETS
 
-from lib.tes.conf import DEFAULT_WALLET_NAME
-from lib.tes.util import get_resource_name
+from electrum.tes.conf import DEFAULT_WALLET_NAME
+from electrum.tes.util import get_resource_name
 
 SYSTEM_CONFIG_PATH = "/etc/{}.conf".format(get_resource_name())
 

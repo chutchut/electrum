@@ -30,7 +30,7 @@ from .keystore import bip44_derivation
 from .wallet import Imported_Wallet, Standard_Wallet, Multisig_Wallet, wallet_types
 from .i18n import _
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 
 class ScriptTypeNotSupported(Exception): pass

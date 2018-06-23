@@ -69,8 +69,8 @@ Label.register('Roboto',
 
 from electrum.util import base_units
 
-from lib.tes.conf import DEFAULT_WALLET_NAME, TESLACOIN_CODE
-from lib.tes.util import get_display_name
+from electrum.tes.conf import DEFAULT_WALLET_NAME, TESLACOIN_CODE
+from electrum.tes.util import get_display_name
 
 
 class ElectrumWindow(App):

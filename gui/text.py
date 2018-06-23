@@ -8,7 +8,7 @@ from electrum.util import format_satoshis, set_verbosity
 from electrum.bitcoin import is_address, COIN, TYPE_ADDRESS
 from electrum import Wallet, WalletStorage
 
-from lib.tes.conf import TESLACOIN_NAME
+from electrum.tes.conf import TESLACOIN_NAME
 
 _ = lambda x:x
 

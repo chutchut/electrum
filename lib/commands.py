@@ -42,7 +42,7 @@ from .transaction import Transaction, multisig_script
 from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .plugins import run_hook
 
-from lib.tes.conf import TESLACOIN_CODE
+from electrum.tes.conf import TESLACOIN_CODE
 
 known_commands = {}
 

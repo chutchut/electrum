@@ -65,8 +65,8 @@ from .fee_slider import FeeSlider
 
 from .util import *
 
-from lib.tes.conf import TESLACOIN_CODE, TESLACOIN_NAME
-from lib.tes.util import get_display_name, get_resource_name
+from electrum.tes.conf import TESLACOIN_CODE, TESLACOIN_NAME
+from electrum.tes.util import get_display_name, get_resource_name
 
 from electrum.util import profiler
 

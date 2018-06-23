@@ -12,7 +12,7 @@ from .bitcoin import COIN
 from .i18n import _
 from .util import PrintError, ThreadJob
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 
 # See https://en.wikipedia.org/wiki/ISO_4217

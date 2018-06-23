@@ -36,7 +36,7 @@ from .i18n import _
 from .util import profiler, PrintError, DaemonThread, UserCancelled, ThreadJob
 from . import bitcoin
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 plugin_loaders = {}
 hook_names = set()

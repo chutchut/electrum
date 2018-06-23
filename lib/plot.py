@@ -13,7 +13,7 @@ import matplotlib.dates as md
 from matplotlib.patches import Ellipse
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, DrawingArea, HPacker
 
-from lib.tes.conf import TESLACOIN_CODE
+from electrum.tes.conf import TESLACOIN_CODE
 
 
 def plot_history(wallet, history):

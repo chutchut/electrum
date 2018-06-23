@@ -35,8 +35,8 @@ from .i18n import _
 import urllib.request, urllib.parse, urllib.error
 import queue
 
-from lib.tes.conf import TESLACOIN_CODE
-from lib.tes.util import get_display_name, get_resource_name
+from electrum.tes.conf import TESLACOIN_CODE
+from electrum.tes.util import get_display_name, get_resource_name
 
 
 def inv_dict(d):

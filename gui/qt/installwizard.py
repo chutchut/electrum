@@ -18,7 +18,7 @@ from .network_dialog import NetworkChoiceLayout
 from .util import *
 from .password_dialog import PasswordLayout, PW_NEW
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 
 class GoBack(Exception):

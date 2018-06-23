@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget
 from electrum_gui.qt.qrcodewidget import QRCodeWidget
 from electrum.i18n import _
 
-from lib.tes.util import get_display_name
+from electrum.tes.util import get_display_name
 
 
 if platform.system() == 'Windows':

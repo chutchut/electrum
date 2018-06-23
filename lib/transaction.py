@@ -39,7 +39,7 @@ import time
 #
 from .keystore import xpubkey_to_address, xpubkey_to_pubkey
 
-from lib.tes.util import tes_print_msg, tes_print_error
+from electrum.tes.util import tes_print_msg, tes_print_error
 
 NO_SIGNATURE = 'ff'
 
