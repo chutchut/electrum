@@ -80,6 +80,7 @@ setup(
             'www/index.html',
             'wordlist/*.txt',
             'locale/*/LC_MESSAGES/electrum.mo',
+            'tes/*'
         ]
     },
     scripts=['electrum'],
