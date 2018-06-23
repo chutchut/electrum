@@ -6,8 +6,8 @@
 
 import json
 import imp
-imp.load_module('lib', *imp.find_module('..'))
-from lib.blockchain import bits_to_target
+imp.load_module('electrum', *imp.find_module('..'))
+from electrum.blockchain import bits_to_target
 
 checkpoints = [
     #  Height, bits, block hash
@@ -26,6 +26,7 @@ checkpoints = [
     (1450000, 0x1d23dc40, "a2251f7ee125cb0bbf405e7b30e81bfdb7c7b8f2b7eec0144e8cb42d2799991d"),
     (1550000, 0x1d232d22, "27a9d6578919a61bb959e43d8934f87dd42d5654845f49449a3b7128ddb47aaa"),
     (1650000, 0x1e00ffff, "16264c6d21c24647dc6db7803d87b9f2e16d2e2c51d2a37c2b5684c4f84a8cfe"),
+    (1671263, 0x1e00e720, "ad2cadabb0a6cd02512790c54ba161ee24a35e3020741981b22390a939bda269"),
 ]
 
 
