@@ -70,16 +70,24 @@ def hash_header(header):
 blockchains = {}
 
 
-def read_blockchains(config):
-    blockchains[0] = Blockchain(config, 0, None)
+def get_fork_list(config):
+    forks = []
     fdir = os.path.join(util.get_headers_dir(config), 'forks')
     if not os.path.exists(fdir):
         os.mkdir(fdir)
     l = filter(lambda x: x.startswith('fork_'), os.listdir(fdir))
-    l = sorted(l, key = lambda x: int(x.split('_')[1]))
+    l = sorted(l, key=lambda x: int(x.split('_')[1]))
     for filename in l:
         checkpoint = int(filename.split('_')[2])
         parent_id = int(filename.split('_')[1])
+        forks.append((checkpoint, parent_id, filename))
+    return forks
+
+
+def read_blockchains(config):
+    blockchains[0] = Blockchain(config, 0, None)
+    forks = get_fork_list(config)
+    for checkpoint, parent_id, filename in forks:
         b = Blockchain(config, checkpoint, parent_id)
         h = b.read_header(b.checkpoint)
         if b.parent().can_connect(h, check_height=False):
@@ -460,7 +468,8 @@ class Blockchain(util.PrintError):
             return height_0_hash == bitcoin.NetworkConstants.GENESIS
         try:
             prev_hash = self.get_hash(height - 1)
-        except:
+        except Exception as e:
+            tes_print_error('Exception getting previous hash with height: %d (%s)' % (height - 1, e))
             return False
         if prev_hash != header.get('prev_block_hash'):
             tes_print_error("Unexpected hash for height {} from header. Expected: {}, got: {}"
