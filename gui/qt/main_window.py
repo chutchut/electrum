@@ -3028,6 +3028,11 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
     def clean_up(self):
         self.wallet.thread.stop()
         if self.network:
+            if self.network.blockchains:
+                bc = self.network.blockchain()
+                if bc:
+                    self.print_msg('Blockchains are disconnecting..')
+                    bc.disconnecting = True
             self.network.unregister_callback(self.on_network)
         self.config.set_key("is_maximized", self.isMaximized())
         if not self.isMaximized():

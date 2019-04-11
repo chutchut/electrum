@@ -108,6 +108,8 @@ def check_header(header):
 
 def can_connect(header):
     for b in blockchains.values():
+        if b.disconnecting:
+            continue
         if getattr(b, 'set_current_header') and callable(getattr(b, 'set_current_header')):
             # Set the current header
             b.set_current_header(header)
@@ -124,6 +126,7 @@ class Blockchain(util.PrintError):
     def __init__(self, config, checkpoint, parent_id):
         self.config = config
         self.catch_up = None # interface catching up
+        self.disconnecting = False
         self.checkpoint = checkpoint
         self.checkpoints = bitcoin.NetworkConstants.CHECKPOINTS
         self.parent_id = parent_id
@@ -209,6 +212,8 @@ class Blockchain(util.PrintError):
         num = len(data) // 80
         index = index * 2016
         for i in range(num):
+            if self.disconnecting:
+                return
             raw_header = data[i * 80:(i + 1) * 80]
             header = deserialize_header(raw_header, index + i)
             # Set the current header
@@ -355,6 +360,7 @@ class Blockchain(util.PrintError):
             return bitcoin.NetworkConstants.GENESIS
         elif self.get_tes_checkpoint(height):
             h, t = self.get_tes_checkpoint(height)
+            tes_print_msg("Got hash ({}) from checkpoint for height: {}".format(h, height))
             return h
         else:
             return hash_header(self.read_header(height))
@@ -452,6 +458,11 @@ class Blockchain(util.PrintError):
         return int(new_target)
 
     def can_connect(self, header, check_height=True):
+        if self.disconnecting:
+            return False
+        # Dont allow without checking height
+        if not check_height:
+            return False
         height = header['block_height']
         tes_print_msg("Current height from header: {}, checkpoint: {}".format(height, self.height()))
         if check_height and self.height() != height - 1:
@@ -490,6 +501,9 @@ class Blockchain(util.PrintError):
         return True
 
     def connect_chunk(self, idx, hexdata):
+        if self.disconnecting:
+            self.print_error('Blockchain is disconnected')
+            return False
         try:
             data = bfh(hexdata)
             self.verify_chunk(idx, data)

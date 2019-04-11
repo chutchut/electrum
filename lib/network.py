@@ -941,7 +941,7 @@ class Network(util.DaemonThread):
                             next_height = interface.bad + 1
                             interface.blockchain.catch_up = interface.server
                     else:
-                        assert bh == interface.good
+                        #assert bh == interface.good
                         if interface.blockchain.catch_up is None and bh < interface.tip:
                             interface.print_error("catching up from %d"% (bh + 1))
                             interface.mode = 'catch_up'
