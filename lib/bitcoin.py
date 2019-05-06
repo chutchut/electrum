@@ -38,6 +38,8 @@ from . import version
 from .util import print_error, InvalidPassword, assert_bytes, to_bytes, inv_dict
 from . import segwit_addr
 
+from .tes.util import tes_print_error, tes_print_msg
+
 def read_json(filename, default):
     path = os.path.join(os.path.dirname(__file__), filename)
     try:
@@ -207,7 +209,9 @@ def rev_hex(s):
 
 
 def int_to_hex(i, length=1):
-    assert isinstance(i, int)
+    if not isinstance(i, int):
+        tes_print_error("Failed assertion: isinstance(i, int)")
+        return
     s = hex(i)[2:].rstrip('L')
     s = "0"*(2*length - len(s)) + s
     return rev_hex(s)

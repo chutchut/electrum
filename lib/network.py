@@ -587,8 +587,9 @@ class Network(util.DaemonThread):
                 # and are placed in the unanswered_requests dictionary
                 client_req = self.unanswered_requests.pop(message_id, None)
                 if client_req:
-                    assert interface == self.interface
-                    callbacks = [client_req[2]]
+                    #assert interface == self.interface
+                    if interface == self.interface:
+                        callbacks = [client_req[2]]
                 else:
                     # fixme: will only work for subscriptions
                     k = self.get_index(method, params)

@@ -37,18 +37,26 @@ CUTOFF_POW_BLOCK = 465000
 
 
 def serialize_header(res):
-    s = int_to_hex(res.get('version'), 4) \
-        + rev_hex(res.get('prev_block_hash')) \
-        + rev_hex(res.get('merkle_root')) \
-        + int_to_hex(int(res.get('timestamp')), 4) \
-        + int_to_hex(int(res.get('bits')), 4) \
-        + int_to_hex(int(res.get('nonce')), 4)
+    s = None
+    if not res:
+        return s
+    try:
+        s = int_to_hex(res.get('version'), 4) \
+            + rev_hex(res.get('prev_block_hash')) \
+            + rev_hex(res.get('merkle_root')) \
+            + int_to_hex(int(res.get('timestamp')), 4) \
+            + int_to_hex(int(res.get('bits')), 4) \
+            + int_to_hex(int(res.get('nonce')), 4)
+    except Exception as e:
+        tes_print_error("Exception in serialize_header(): {}".format(e))
     return s
 
 
 def deserialize_header(s, height):
     hex_to_int = lambda s: int('0x' + bh2u(s[::-1]), 16)
     h = {}
+    if not s or not height:
+        return {}
     h['version'] = hex_to_int(s[0:4])
     h['prev_block_hash'] = hash_encode(s[4:36])
     h['merkle_root'] = hash_encode(s[36:68])
@@ -64,7 +72,10 @@ def hash_header(header):
         return '0' * 64
     if header.get('prev_block_hash') is None:
         header['prev_block_hash'] = '00'*32
-    return hash_encode(TESHash(bfh(serialize_header(header))))
+    header_ser = serialize_header(header)
+    if header_ser is None:
+        return '0' * 64
+    return hash_encode(TESHash(bfh(header_ser)))
 
 
 blockchains = {}
@@ -227,7 +238,9 @@ class Blockchain(util.PrintError):
 
     def path(self):
         d = util.get_headers_dir(self.config)
-        filename = 'blockchain_headers' if self.parent_id is None else os.path.join('forks', 'fork_%d_%d'%(self.parent_id, self.checkpoint))
+        # Force use of a single header file
+        #filename = 'blockchain_headers' if self.parent_id is None else os.path.join('forks', 'fork_%d_%d'%(self.parent_id, self.checkpoint))
+        filename = 'blockchain_headers'
         return os.path.join(d, filename)
 
     def save_chunk(self, index, chunk):
@@ -306,13 +319,16 @@ class Blockchain(util.PrintError):
         # Allow out-of-order save for pre-checkpoint headers
         check_size = not self.is_pre_checkpoint_header(height)
         if check_size:
-            assert delta == self.size()
+            if delta != self.size():
+                tes_print_error("Failed assertion: delta == self.size()")
+                return
         assert len(data) == 80
         self.write(data, delta*80)
         self.swap_with_parent()
 
     def read_header(self, height, in_mem=True):
         assert self.parent_id != self.checkpoint
+        h = None
         if height < 0:
             return
         if in_mem and self.get_current_header(height=height):
@@ -327,7 +343,9 @@ class Blockchain(util.PrintError):
             with open(name, 'rb') as f:
                 f.seek(delta * 80)
                 h = f.read(80)
-        if h == bytes([0])*80:
+        else:
+            tes_print_error("Cant find header cache file ({}) for height: {}".format(name, height))
+        if h is None or h == bytes([0])*80:
             return None
         return deserialize_header(h, height)
 
@@ -459,9 +477,6 @@ class Blockchain(util.PrintError):
 
     def can_connect(self, header, check_height=True):
         if self.disconnecting:
-            return False
-        # Dont allow without checking height
-        if not check_height:
             return False
         height = header['block_height']
         tes_print_msg("Current height from header: {}, checkpoint: {}".format(height, self.height()))

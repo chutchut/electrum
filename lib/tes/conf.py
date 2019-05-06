@@ -4,10 +4,11 @@
 
 # Config
 
-TESLACOIN_DEBUG = False
+TESLACOIN_DEBUG = True
 TESLACOIN_DEBUG_IGNORE = [
     'verifier.py::run()',
-    'network.py::blockchain()'
+    'network.py::blockchain()',
+    'get_tx_height()',
 ]
 
 ELECTRUM_BASE_NAME = 'Electrum'
